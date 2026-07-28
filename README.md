@@ -263,3 +263,5 @@ This project demonstrates:
 ---
 
 **Built with ❤️ as a complete financial dashboard clone with professional features and mobile support.**
+
+**Developed by Ashish Baboo** | [ashishbaboo.com](https://ashishbaboo.com)
