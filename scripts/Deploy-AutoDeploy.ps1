@@ -66,7 +66,7 @@ try {
     if ($depsChanged) {
         Log 'dependencies changed - npm install'
         Push-Location $Repo
-        & npm ci --production >> $Log 2>&1
+        & npm install >> $Log 2>&1
         Pop-Location
     }
 

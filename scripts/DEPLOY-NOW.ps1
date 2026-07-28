@@ -163,8 +163,8 @@ Step "6  Build application"
 
 Push-Location $Repo
 
-Write-Host "       npm ci ..."
-& npm ci --production 2>&1 | Out-Null
+Write-Host "       npm install ..."
+& npm install 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Pop-Location
     Fail "npm install failed"
