@@ -35,9 +35,9 @@ $ProgressPreference    = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 function Step($m) { Write-Host "`n=== $m ===" -ForegroundColor Cyan }
-function Ok($m)   { Write-Host "  ✓ $m" -ForegroundColor Green }
-function Warn($m) { Write-Host "  ! $m" -ForegroundColor Yellow }
-function Fail($m) { Write-Host "  ✗ $m" -ForegroundColor Red; exit 1 }
+function Ok($m)   { Write-Host "  [OK] $m" -ForegroundColor Green }
+function Warn($m) { Write-Host "  [!] $m" -ForegroundColor Yellow }
+function Fail($m) { Write-Host "  [X] $m" -ForegroundColor Red; exit 1 }
 
 # Paths
 if (-not $InstallRoot) {
@@ -297,9 +297,9 @@ if (Test-Path $autoDeploy) {
 }
 
 # Final summary
-Write-Host "`n╔════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║         MANAGE YOUR MONEY - DEPLOYMENT COMPLETE            ║" -ForegroundColor Cyan
-Write-Host "╚════════════════════════════════════════════════════════════╝`n" -ForegroundColor Cyan
+Write-Host "`n========================================" -ForegroundColor Cyan
+Write-Host "   MANAGE YOUR MONEY - DEPLOYMENT COMPLETE" -ForegroundColor Cyan
+Write-Host "========================================`n" -ForegroundColor Cyan
 
 Write-Host "  Access:        http://$Domain (change to https:// after cert)"
 Write-Host "  Service:       $SvcApp"
