@@ -66,8 +66,8 @@ if ((Test-Path $CertChain) -and (Test-Path $CertKey)) {
     # Still update nginx if needed
     Write-Host "`nConfiguring nginx for HTTPS..." -ForegroundColor Cyan
     $NginxConf = Join-Path $NginxDir "conf\manage-your-money.conf"
-    $certChainFwd = $CertChain.Replace('\', '/')
-    $certKeyFwd = $CertKey.Replace('\', '/')
+    $certChainFwd = $CertChain -replace '\\', '/'
+    $certKeyFwd = $CertKey -replace '\\', '/'
 
     $nginxCfg = @"
 # Manage Your Money HTTPS
@@ -176,8 +176,8 @@ if ((Test-Path $CertChain) -and (Test-Path $CertKey)) {
 Write-Host "`nStep 3: Configuring nginx..."
 
 $NginxConf = Join-Path $NginxDir "conf\manage-your-money.conf"
-$certChainFwd = $CertChain.Replace('\', '/')
-$certKeyFwd = $CertKey.Replace('\', '/')
+$certChainFwd = $CertChain -replace '\\', '/'
+$certKeyFwd = $CertKey -replace '\\', '/'
 
 $nginxCfg = @"
 # Manage Your Money HTTPS
