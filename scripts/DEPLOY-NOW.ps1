@@ -164,7 +164,7 @@ Step "6  Build application"
 Push-Location $Repo
 
 Write-Host "       npm install ..."
-$output = & npm install 2>&1
+$output = & npm.cmd install 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Host $output
     Pop-Location
@@ -173,7 +173,7 @@ if ($LASTEXITCODE -ne 0) {
 Ok "dependencies installed"
 
 Write-Host "       npm run build ..."
-$output = & npm run build 2>&1
+$output = & npm.cmd run build 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Host $output
     Pop-Location
