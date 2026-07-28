@@ -2,8 +2,11 @@
 # MANAGE YOUR MONEY - DEPLOY NOW
 #
 # Run ON THE VPS in ELEVATED PowerShell:
+#   powershell -ExecutionPolicy Bypass -File "C:\Users\<user>\Desktop\Projects\manage-your-money\scripts\DEPLOY-NOW.ps1"
+#
+# Or with custom domain:
 #   powershell -ExecutionPolicy Bypass -File "C:\Users\<user>\Desktop\Projects\manage-your-money\scripts\DEPLOY-NOW.ps1" `
-#       -Domain money.example.com
+#       -Domain manageyourmoney.ashishbaboo.com
 #
 # Assumes: git, Node.js (v20+), nginx, NSSM, win-acme all in C:\tools
 # (exactly like Wolfson OS VPS pattern)
@@ -20,7 +23,7 @@
 # =============================================================================
 
 param(
-    [string] $Domain      = 'money.example.com',
+    [string] $Domain      = 'manageyourmoney.ashishbaboo.com',
     [string] $RepoUrl     = 'https://github.com/AshishBaboo/ManageYourMoney.git',
     [string] $InstallRoot = '',
     [int]    $AppPort     = 5173,
