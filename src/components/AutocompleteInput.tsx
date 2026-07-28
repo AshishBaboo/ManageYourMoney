@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { ChevronDown } from 'lucide-react'
 
 interface AutocompleteInputProps {
   value: string

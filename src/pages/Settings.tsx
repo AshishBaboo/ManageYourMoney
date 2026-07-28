@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bell, Lock, Eye, Smartphone, LogOut, ChevronRight, Save } from 'lucide-react'
+import { Bell, Lock, LogOut, ChevronRight, Save } from 'lucide-react'
 
 export default function Settings() {
   const [settings, setSettings] = useState({

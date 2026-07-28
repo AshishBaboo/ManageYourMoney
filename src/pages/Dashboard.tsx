@@ -1,7 +1,7 @@
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { TrendingUp, Plus, AlertCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { mockAccounts, mockGoals, mockTransactions, mockCategories, mockBudgets } from '../data'
+import { mockAccounts, mockGoals, mockTransactions, mockBudgets } from '../data'
 
 const chartData = [
   { month: 'Jan', savings: 12000, expenses: 8000 },

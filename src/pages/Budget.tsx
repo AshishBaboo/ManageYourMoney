@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight, Plus, AlertCircle } from 'lucide-react'
-import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { mockCategories, mockBudgets, mockTransactions } from '../data'
-import { format, parse, addMonths, subMonths } from 'date-fns'
+import { format, addMonths, subMonths } from 'date-fns'
 
 export default function Budget() {
   const [currentMonth, setCurrentMonth] = useState(new Date(2024, 0, 1))

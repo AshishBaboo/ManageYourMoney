@@ -1,4 +1,4 @@
-import { Plus, Edit2, Trash2, Calendar } from 'lucide-react'
+import { Plus, Edit2, Trash2 } from 'lucide-react'
 import { mockGoals } from '../data'
 
 export default function Goals() {
