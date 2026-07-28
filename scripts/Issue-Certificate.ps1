@@ -1,17 +1,13 @@
-param(
-    [Parameter(Mandatory=$true)]
-    [string] $CloudflareToken
-)
+# Automated Certificate Issuance (HTTP-01 Validation - no token needed)
+param()
 
-$ErrorActionPreference = 'Continue'
-
-# Paths
 $WacsExe   = 'C:\tools\win-acme\wacs.exe'
 $PemDir    = 'C:\tools\certs'
 $NginxDir  = 'C:\tools\nginx'
 $NssmExe   = 'C:\tools\nssm\nssm.exe'
 $Domain    = 'manageyourmoney.ashishbaboo.com'
 $Email     = 'ashishbaboo007@gmail.com'
+$WebRoot   = Join-Path $NginxDir 'acme-webroot'
 
 $CertChain = "$PemDir\$Domain-chain.pem"
 $CertKey   = "$PemDir\$Domain-key.pem"
@@ -19,25 +15,26 @@ $CertKey   = "$PemDir\$Domain-key.pem"
 Write-Host "`n=== Certificate Generation ===" -ForegroundColor Cyan
 
 if (Test-Path $CertChain) {
-    Write-Host "  [OK] Certificate already exists" -ForegroundColor Green
+    Write-Host "  [OK] Certificate exists" -ForegroundColor Green
 } else {
+    if (-not (Test-Path $WebRoot)) {
+        New-Item -ItemType Directory -Force -Path $WebRoot | Out-Null
+    }
+
     Write-Host "  Issuing certificate..." -ForegroundColor Yellow
 
     Push-Location (Split-Path $WacsExe)
 
-    $env:WACS_CLOUDFLARE_APITOKEN = $CloudflareToken
-
-    & $WacsExe --source manual --host $Domain --validation dns-cloudflare --store pemfiles --pemfilespath $PemDir --accepttos --emailaddress $Email --quiet 2>&1 | Out-Null
+    & $WacsExe --source manual --host $Domain --validation filesystem --webroot $WebRoot --store pemfiles --pemfilespath $PemDir --accepttos --emailaddress $Email 2>&1 | Out-Null
 
     Pop-Location
     Start-Sleep -Seconds 3
 
-    if (Test-Path $CertChain) {
-        Write-Host "  [OK] Certificate issued" -ForegroundColor Green
-    } else {
+    if (-not (Test-Path $CertChain)) {
         Write-Host "  [X] Certificate failed" -ForegroundColor Red
         exit 1
     }
+    Write-Host "  [OK] Certificate issued" -ForegroundColor Green
 }
 
 Write-Host "  Configuring nginx..." -ForegroundColor Yellow
@@ -89,5 +86,3 @@ Write-Host "`n========================================" -ForegroundColor Green
 Write-Host "   HTTPS READY" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host "`n  Visit: https://$Domain`n" -ForegroundColor Green
-
-$env:WACS_CLOUDFLARE_APITOKEN = ""
