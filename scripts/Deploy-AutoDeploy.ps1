@@ -18,8 +18,9 @@ if (-not $Repo) {
     $Repo = Join-Path $desktop 'Projects\manage-your-money'
 }
 
+# Use tools from C:\tools (Wolfson OS pattern)
 $Nssm    = 'C:\tools\nssm\nssm.exe'
-$Npm     = 'C:\Program Files\nodejs\npm.cmd'
+$NpmCmd  = 'npm.cmd'  # should be in PATH
 $SvcApp  = 'ManageYourMoney'
 
 $env:GIT_TERMINAL_PROMPT = '0'
@@ -65,14 +66,14 @@ try {
     if ($depsChanged) {
         Log 'dependencies changed - npm install'
         Push-Location $Repo
-        & $Npm ci --production >> $Log 2>&1
+        & npm ci --production >> $Log 2>&1
         Pop-Location
     }
 
     if ($frontendChanged) {
         Log 'frontend changed - npm run build'
         Push-Location $Repo
-        & $Npm run build >> $Log 2>&1
+        & npm run build >> $Log 2>&1
         $buildOk = ($LASTEXITCODE -eq 0)
         Pop-Location
         if ($buildOk) {
