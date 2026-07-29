@@ -416,7 +416,9 @@ export default function Budget(): JSX.Element {
   }
 
   // ----- render helpers -----
-  const QuickAddPanel = ({ node }: { node: Category }) => quickAdd?.categoryId === node.id ? (
+  // Plain functions (NOT components): nested component definitions remount on
+  // every keystroke, which made inputs lose focus / jump to the amount box.
+  const renderQuickAdd = (node: Category) => quickAdd?.categoryId === node.id ? (
     <div className="mt-1.5 p-2 rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-900/20 space-y-1.5">
       <div className="flex gap-1.5">
         <input
@@ -460,7 +462,7 @@ export default function Budget(): JSX.Element {
     </div>
   ) : null
 
-  const LimitEditor = ({ node }: { node: Category }) => editingLimit?.categoryId === node.id ? (
+  const renderLimitEditor = (node: Category) => editingLimit?.categoryId === node.id ? (
     <div className="flex gap-1.5 mt-1.5">
       <input
         className={ui.input}
@@ -475,7 +477,7 @@ export default function Budget(): JSX.Element {
     </div>
   ) : null
 
-  const CategoryCard = ({ cat, index, list }: { cat: Category; index: number; list: Category[] }) => {
+  const renderCategoryCard = (cat: Category, index: number, list: Category[]) => {
     const children = childrenOf(cat.id)
     const spent = rolledAmount(cat)
     const limit = rolledLimit(cat)
@@ -521,8 +523,8 @@ export default function Budget(): JSX.Element {
           </span>
         </div>
 
-        <QuickAddPanel node={cat} />
-        <LimitEditor node={cat} />
+        {renderQuickAdd(cat)}
+        {renderLimitEditor(cat)}
 
         {/* row 3: subcats toggle, left amount, actions — one thin line */}
         <div className="mt-1 flex items-center gap-1 text-[10px]">
@@ -587,8 +589,8 @@ export default function Budget(): JSX.Element {
                       <div className={`h-1.5 rounded-full ${cat.type === 'income' ? 'bg-violet-400' : barColor(sPct)}`} style={{ width: `${Math.min(sPct, 100)}%` }} />
                     </div>
                   )}
-                  <QuickAddPanel node={sub} />
-                  <LimitEditor node={sub} />
+                  {renderQuickAdd(sub)}
+                  {renderLimitEditor(sub)}
                 </div>
               )
             })}
@@ -935,7 +937,7 @@ export default function Budget(): JSX.Element {
               </button>
               {!collapsedSections.has('income') && (
                 <div className="space-y-2">
-                  {incomeTops.map((cat, i) => <CategoryCard key={cat.id} cat={cat} index={i} list={incomeTops} />)}
+                  {incomeTops.map((cat, i) => <div key={cat.id}>{renderCategoryCard(cat, i, incomeTops)}</div>)}
                 </div>
               )}
             </>
@@ -951,7 +953,7 @@ export default function Budget(): JSX.Element {
               </button>
               {!collapsedSections.has('expense') && (
                 <div className="space-y-2">
-                  {expenseTops.map((cat, i) => <CategoryCard key={cat.id} cat={cat} index={i} list={expenseTops} />)}
+                  {expenseTops.map((cat, i) => <div key={cat.id}>{renderCategoryCard(cat, i, expenseTops)}</div>)}
                 </div>
               )}
             </>

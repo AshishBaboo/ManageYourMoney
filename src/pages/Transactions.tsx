@@ -24,6 +24,7 @@ interface Tx {
   account_id: string | null
   category_id: string | null
   occurred_at?: string | null
+  transfer_group?: string | null
 }
 
 export default function Transactions(): JSX.Element {
@@ -201,6 +202,51 @@ export default function Transactions(): JSX.Element {
     return matchesSearch && matchesType
   })
 
+  // merge the two sides of a transfer into one display entry
+  const displayList = useMemo(() => {
+    const seen = new Set<string>()
+    const out: { tx: Tx; pair?: Tx }[] = []
+    for (const tx of filtered) {
+      if (tx.type === 'transfer' && tx.transfer_group) {
+        if (seen.has(tx.transfer_group)) continue
+        seen.add(tx.transfer_group)
+        const sides = filtered.filter(t => t.transfer_group === tx.transfer_group)
+        const outSide = sides.find(t => t.amount < 0) || tx
+        const inSide = sides.find(t => t.amount >= 0 && t.id !== outSide.id)
+        out.push({ tx: outSide, pair: inSide })
+      } else {
+        out.push({ tx })
+      }
+    }
+    return out
+  }, [filtered])
+
+  const deleteTransfer = async (outSide: Tx, inSide?: Tx) => {
+    const fromAcc = outSide.account_id ? accById[outSide.account_id] : null
+    const toAcc = inSide?.account_id ? accById[inSide.account_id] : null
+    if (!(await confirm(`Delete this transfer of ${formatCurrency(Math.abs(outSide.amount))}${fromAcc && toAcc ? ` (${fromAcc.name} → ${toAcc.name})` : ''}? Both account balances will be adjusted back.`))) return
+    try {
+      const ids = [outSide.id, ...(inSide ? [inSide.id] : [])]
+      const { error, count } = await supabase.from('transactions').delete({ count: 'exact' }).in('id', ids)
+      if (error) throw error
+      if (!count) throw new Error('Delete failed')
+      if (fromAcc) {
+        await supabase.from('accounts').update({ balance: fromAcc.balance - outSide.amount }).eq('id', fromAcc.id)
+      }
+      if (toAcc && inSide) {
+        await supabase.from('accounts').update({ balance: toAcc.balance - inSide.amount }).eq('id', toAcc.id)
+      }
+      setAccounts(accounts.map(a =>
+        a.id === fromAcc?.id ? { ...a, balance: a.balance - outSide.amount } :
+        a.id === toAcc?.id && inSide ? { ...a, balance: a.balance - inSide.amount } : a
+      ))
+      setTransactions(transactions.filter(t => !ids.includes(t.id)))
+      notify('Transfer deleted — both balances restored')
+    } catch (e: any) {
+      notify(e.message || 'Failed to delete transfer', false)
+    }
+  }
+
   const totalIncome = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
   const totalExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
   const formCategories = categories.filter(c => c.type === form.type)
@@ -370,9 +416,13 @@ export default function Transactions(): JSX.Element {
           </p>
         ) : (
           <div className="space-y-1.5">
-            {filtered.map(tx => {
+            {displayList.map(({ tx, pair }) => {
               const cat = tx.category_id ? catById[tx.category_id] : null
               const acc = tx.account_id ? accById[tx.account_id] : null
+              const isMergedTransfer = tx.type === 'transfer' && !!pair
+              const transferLabel = isMergedTransfer
+                ? `Transfer: ${acc?.name || '?'} → ${(pair!.account_id && accById[pair!.account_id]?.name) || '?'}`
+                : tx.description
               if (editingTx?.id === tx.id) {
                 return (
                   <div key={tx.id} className="p-2 rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-900/20 space-y-1.5">
@@ -406,11 +456,11 @@ export default function Transactions(): JSX.Element {
                         : <ArrowUpRight className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`${ui.strong} truncate`}>{tx.description}</p>
+                    <p className={`${ui.strong} truncate`}>{transferLabel}</p>
                     <p className={ui.sub}>
                       {formatTxDate(tx)}
-                      {cat ? ` • ${cat.icon ? `${cat.icon} ` : ''}${cat.name}` : ''}
-                      {acc ? ` • ${acc.name}` : ''}
+                      {!isMergedTransfer && cat ? ` • ${cat.icon ? `${cat.icon} ` : ''}${cat.name}` : ''}
+                      {!isMergedTransfer && acc ? ` • ${acc.name}` : ''}
                     </p>
                   </div>
                   <p className={`text-xs font-semibold whitespace-nowrap mx-1.5 ${
@@ -418,16 +468,23 @@ export default function Transactions(): JSX.Element {
                     : tx.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                   }`}>
                     {tx.type === 'transfer'
-                      ? `${tx.amount >= 0 ? '+' : '-'}${formatCurrency(Math.abs(tx.amount))}`
+                      ? isMergedTransfer
+                        ? formatCurrency(Math.abs(tx.amount))
+                        : `${tx.amount >= 0 ? '+' : '-'}${formatCurrency(Math.abs(tx.amount))}`
                       : `${tx.type === 'income' ? '+' : '-'}${formatCurrency(tx.amount)}`}
                   </p>
+                  {tx.type !== 'transfer' && (
+                    <button
+                      onClick={() => setEditingTx({ id: tx.id, description: tx.description, amount: String(tx.amount), date: tx.date })}
+                      aria-label="Edit transaction" className={ui.iconBtn}
+                    >
+                      <Pencil className="w-3 h-3 text-gray-500" />
+                    </button>
+                  )}
                   <button
-                    onClick={() => setEditingTx({ id: tx.id, description: tx.description, amount: String(tx.amount), date: tx.date })}
-                    aria-label="Edit transaction" className={ui.iconBtn}
+                    onClick={() => tx.type === 'transfer' ? deleteTransfer(tx, pair) : deleteTransaction(tx)}
+                    aria-label="Delete transaction" className={ui.iconBtnDanger}
                   >
-                    <Pencil className="w-3 h-3 text-gray-500" />
-                  </button>
-                  <button onClick={() => deleteTransaction(tx)} aria-label="Delete transaction" className={ui.iconBtnDanger}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>

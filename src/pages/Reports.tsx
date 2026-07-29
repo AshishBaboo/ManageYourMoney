@@ -160,7 +160,7 @@ export default function Reports(): JSX.Element {
     ? Math.max(1, Math.round((new Date(range.to).getTime() - new Date(range.from).getTime()) / 86400000) + 1)
     : null
 
-  const BreakdownList = ({ rows, total, color }: { rows: { name: string; icon: string | null; total: number }[]; total: number; color: 'expense' | 'income' }) => (
+  const renderBreakdown = (rows: { name: string; icon: string | null; total: number }[], total: number, color: 'expense' | 'income') => (
     <div className="space-y-2">
       {rows.length === 0 ? <p className={ui.empty}>Nothing in this period</p> : rows.map((r, i) => {
         const pctShare = total > 0 ? (r.total / total) * 100 : 0
@@ -271,21 +271,21 @@ export default function Reports(): JSX.Element {
           {/* Spending by category — largest first */}
           <div className={ui.card}>
             <h2 className={`${ui.h2} mb-2`}>Spending by Category</h2>
-            <BreakdownList rows={expenseBreakdown} total={totalExpense} color="expense" />
+            {renderBreakdown(expenseBreakdown, totalExpense, 'expense')}
           </div>
 
           {/* Spending by subcategory — largest first */}
           {subBreakdown.length > expenseBreakdown.length && (
             <div className={ui.card}>
               <h2 className={`${ui.h2} mb-2`}>Spending by Subcategory</h2>
-              <BreakdownList rows={subBreakdown} total={totalExpense} color="expense" />
+              {renderBreakdown(subBreakdown, totalExpense, 'expense')}
             </div>
           )}
 
           {/* Income by category */}
           <div className={ui.card}>
             <h2 className={`${ui.h2} mb-2`}>Income by Category</h2>
-            <BreakdownList rows={incomeBreakdown} total={totalIncome} color="income" />
+            {renderBreakdown(incomeBreakdown, totalIncome, 'income')}
           </div>
 
           {/* Top income entries */}

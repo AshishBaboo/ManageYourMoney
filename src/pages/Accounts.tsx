@@ -153,19 +153,25 @@ export default function Accounts(): JSX.Element {
       const { error: e2 } = await supabase.from('accounts').update({ balance: to.balance + amount }).eq('id', to.id)
       if (e2) throw e2
 
-      // record both sides as transfer transactions (outgoing negative, incoming positive)
+      // record both sides as ONE transfer (linked by transfer_group; the
+      // transactions list shows a single merged entry, each account its side)
       const today = new Date().toISOString().slice(0, 10)
-      const { error: txErr } = await supabase.from('transactions').insert([
-        { user_id: user.id, account_id: from.id, description: `Transfer to ${to.name}`, amount: -amount, type: 'transfer', date: today, occurred_at: new Date().toISOString() },
-        { user_id: user.id, account_id: to.id, description: `Transfer from ${from.name}`, amount, type: 'transfer', date: today, occurred_at: new Date().toISOString() },
-      ])
+      const group = crypto.randomUUID()
+      const baseRows = [
+        { user_id: user.id, account_id: from.id, description: `Transfer to ${to.name}`, amount: -amount, type: 'transfer', date: today, occurred_at: new Date().toISOString(), transfer_group: group },
+        { user_id: user.id, account_id: to.id, description: `Transfer from ${from.name}`, amount, type: 'transfer', date: today, occurred_at: new Date().toISOString(), transfer_group: group },
+      ]
+      let { error: txErr } = await supabase.from('transactions').insert(baseRows)
+      if (txErr && /transfer_group|occurred_at/i.test(txErr.message)) {
+        // older DB — retry without the optional columns
+        ;({ error: txErr } = await supabase.from('transactions').insert(
+          baseRows.map(({ occurred_at: _o, transfer_group: _g, ...rest }) => rest)
+        ))
+      }
       if (txErr && /type_check/i.test(txErr.message)) {
         notify('Transfer done — run supabase-migration-4 to also record transfers as transactions', false)
-      } else if (txErr && /occurred_at/i.test(txErr.message)) {
-        await supabase.from('transactions').insert([
-          { user_id: user.id, account_id: from.id, description: `Transfer to ${to.name}`, amount: -amount, type: 'transfer', date: today },
-          { user_id: user.id, account_id: to.id, description: `Transfer from ${from.name}`, amount, type: 'transfer', date: today },
-        ])
+      } else if (txErr) {
+        notify(`Transfer done, but recording failed: ${txErr.message}`, false)
       }
 
       setAccounts(accounts.map(a =>

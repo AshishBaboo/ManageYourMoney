@@ -279,7 +279,9 @@ export default function CategoryDetail(): JSX.Element {
   }
 
   // ---------- small renderers ----------
-  const TxRow = ({ tx }: { tx: Tx }) => editingTx?.id === tx.id ? (
+  // Plain render functions, NOT nested components — component definitions inside
+  // the page remount on every keystroke and steal input focus (esp. on mobile)
+  const renderTxRow = (tx: Tx) => editingTx?.id === tx.id ? (
     <div className="p-2 rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-900/20 space-y-1.5">
       <input className={ui.input} value={editingTx.description} placeholder="Description"
         onChange={e => setEditingTx({ ...editingTx, description: e.target.value })} />
@@ -312,7 +314,7 @@ export default function CategoryDetail(): JSX.Element {
     </div>
   )
 
-  const QuickAddPanel = ({ nodeId, nodeName }: { nodeId: string; nodeName: string }) => quickAdd?.categoryId === nodeId ? (
+  const renderQuickAdd = (nodeId: string, nodeName: string) => quickAdd?.categoryId === nodeId ? (
     <div className="mt-1.5 p-2 rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-900/20 space-y-1.5">
       <div className="flex gap-1.5">
         <input className={ui.input} type="number" placeholder={`Amount (${currencySymbol()})`} value={quickAdd.amount}
@@ -429,7 +431,7 @@ export default function CategoryDetail(): JSX.Element {
             <button onClick={() => setEditingLimit(null)} className={ui.btnSecondary}>Cancel</button>
           </div>
         )}
-        <QuickAddPanel nodeId={category.id} nodeName={category.name} />
+        {renderQuickAdd(category.id, category.name)}
         {subForm && (
           <div className="flex gap-1.5 mt-1.5">
             <input className={ui.input} placeholder="Subcategory name" value={subForm.name}
@@ -512,13 +514,13 @@ export default function CategoryDetail(): JSX.Element {
                 <button onClick={() => setEditingLimit(null)} className={ui.btnSecondary}>Cancel</button>
               </div>
             )}
-            <QuickAddPanel nodeId={sub.id} nodeName={sub.name} />
+            {renderQuickAdd(sub.id, sub.name)}
 
             {isOpen && (
               <div className="mt-1.5 space-y-1">
                 {sTx.length === 0
                   ? <p className={ui.empty}>No transactions this month</p>
-                  : sTx.map(tx => <TxRow key={tx.id} tx={tx} />)}
+                  : sTx.map(tx => <div key={tx.id}>{renderTxRow(tx)}</div>)}
               </div>
             )}
           </div>
@@ -530,7 +532,7 @@ export default function CategoryDetail(): JSX.Element {
         <div className={ui.card}>
           <h2 className={`${ui.h2} mb-1.5`}>General ({category.name})</h2>
           <div className="space-y-1">
-            {generalTx.map(tx => <TxRow key={tx.id} tx={tx} />)}
+            {generalTx.map(tx => <div key={tx.id}>{renderTxRow(tx)}</div>)}
           </div>
         </div>
       )}
