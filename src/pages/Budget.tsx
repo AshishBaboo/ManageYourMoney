@@ -231,6 +231,61 @@ export default function Budget(): JSX.Element {
     }
   }
 
+  // ----- first-run starter template -----
+  const STARTER: { name: string; type: 'income' | 'expense'; icon: string; subs?: string[] }[] = [
+    { name: 'Salary', type: 'income', icon: '💼' },
+    { name: 'Other Income', type: 'income', icon: '💰' },
+    { name: 'House Expenses', type: 'expense', icon: '🏠', subs: ['Groceries', 'Daily Living', 'Cylinder'] },
+    { name: 'Rent & Bills', type: 'expense', icon: '🧾', subs: ['Rent', 'Electricity', 'Internet & Phone'] },
+    { name: 'Travel', type: 'expense', icon: '🚗', subs: ['Fuel', 'Cab / Auto'] },
+    { name: 'Health', type: 'expense', icon: '🏥', subs: ['Medicines', 'Doctor'] },
+    { name: 'Shopping', type: 'expense', icon: '🛍️' },
+    { name: 'Unplanned', type: 'expense', icon: '❓' },
+  ]
+  const [creatingStarter, setCreatingStarter] = useState(false)
+
+  const createStarterBudget = async () => {
+    setCreatingStarter(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      // parents first
+      const parentRows = STARTER.map((s, i) => ({
+        user_id: user.id, name: s.name, type: s.type, icon: s.icon,
+        color: PALETTE[i % PALETTE.length], sort_order: (i + 1) * 10,
+      }))
+      const { data: parents, error: pErr } = await supabase.from('categories').insert(parentRows).select()
+      if (pErr) throw pErr
+      // subcategories
+      const subRows = STARTER.flatMap(s => {
+        const parent = parents!.find(p => p.name === s.name)
+        return (s.subs || []).map((subName, i) => ({
+          user_id: user.id, name: subName, type: s.type, parent_id: parent!.id, sort_order: (i + 1) * 10,
+        }))
+      })
+      let subs: any[] = []
+      if (subRows.length) {
+        const { data: subData, error: sErr } = await supabase.from('categories').insert(subRows).select()
+        if (sErr && !/parent_id/i.test(sErr.message)) throw sErr
+        subs = subData || []
+      }
+      // budget rows for this month (amounts 0 — user fills them in)
+      const budgetRowsNew = [...parents!, ...subs].map(c => ({
+        user_id: user.id, category_id: c.id, month: monthStr, limit_amount: 0,
+      }))
+      const { error: bErr } = await supabase.from('budgets').insert(budgetRowsNew)
+      if (bErr) throw bErr
+      notify('Starter budget created! Tap the pencil on each category to set your amounts.')
+      await load()
+    } catch (e: any) {
+      notify(e.message || 'Failed to create starter budget', false)
+    } finally {
+      setCreatingStarter(false)
+    }
+  }
+
+  const isFreshUser = categories.length === 0 && budgetMonths.length === 0 && monthTx.length === 0
+
   // ----- delete this month's budget (rows only — categories & transactions stay) -----
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
@@ -657,8 +712,30 @@ export default function Budget(): JSX.Element {
       </div>
       )}
 
-      {/* No budget for this month yet */}
-      {!monthHasBudget && (
+      {/* First-time user: guided onboarding */}
+      {isFreshUser ? (
+        <div className={`${ui.card} !p-4`}>
+          <p className="text-2xl mb-1">👋</p>
+          <h2 className={`${ui.h2} mb-1`}>Welcome! Let's create your first budget</h2>
+          <p className={`${ui.text} mb-3`}>
+            A budget is monthly. You create <span className="font-semibold">categories</span> (like House Expenses or Salary),
+            add <span className="font-semibold">subcategories</span> inside them (like Groceries), and give each an amount
+            for the month. Then adding an expense takes 2 taps from any category's <span className="font-semibold text-blue-600 dark:text-blue-400">+</span> button.
+          </p>
+          <div className="space-y-2">
+            <button onClick={createStarterBudget} disabled={creatingStarter} className={`${ui.btnPrimary} w-full !py-2.5`}>
+              {creatingStarter ? 'Creating your budget...' : `✨ Create my ${format(currentMonth, 'MMMM')} budget with starter categories`}
+            </button>
+            <p className={`${ui.sub} text-center`}>
+              Salary, Other Income • House Expenses (Groceries, Daily Living, Cylinder) • Rent & Bills • Travel • Health • Shopping • Unplanned
+              <br />You just fill in the amounts — everything stays editable and deletable.
+            </p>
+            <button onClick={() => setShowAddCat(true)} className={`${ui.btnSecondary} w-full`}>
+              I'll build my own from scratch
+            </button>
+          </div>
+        </div>
+      ) : !monthHasBudget && (
         <div className={`${ui.card} text-center py-5`}>
           <p className={`${ui.strong} mb-1`}>No budget for {format(currentMonth, 'MMMM yyyy')}</p>
           <p className={`${ui.sub} mb-3`}>Budgets exist only for months you create. Copy an existing budget or start fresh.</p>

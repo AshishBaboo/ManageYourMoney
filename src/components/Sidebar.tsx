@@ -8,11 +8,11 @@ interface SidebarProps {
 }
 
 const menuItems = [
-  { label: 'Dashboard', icon: LayoutDashboard, href: '/' },
-  { label: 'Accounts', icon: Wallet, href: '/accounts' },
-  { label: 'Transactions', icon: ArrowRightLeft, href: '/transactions' },
   { label: 'Budget', icon: PieChart, href: '/budget' },
+  { label: 'Dashboard', icon: LayoutDashboard, href: '/' },
+  { label: 'Transactions', icon: ArrowRightLeft, href: '/transactions' },
   { label: 'Insights', icon: BarChart3, href: '/reports' },
+  { label: 'Accounts', icon: Wallet, href: '/accounts' },
   { label: 'Goals', icon: Target, href: '/goals' },
   { label: 'Settings', icon: Settings, href: '/settings' }
 ]

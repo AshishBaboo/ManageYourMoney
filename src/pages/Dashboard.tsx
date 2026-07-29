@@ -124,6 +124,16 @@ export default function Dashboard(): JSX.Element {
     <div className={ui.page}>
       <Toast notice={notice} />
 
+      {/* Fresh user: point them at the budget — the heart of the app */}
+      {accounts.length === 0 && transactions.length === 0 && budgets.length === 0 && (
+        <Link to="/budget" className="block bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-3 text-white hover:opacity-95 transition">
+          <p className="text-sm font-semibold">👋 Start here: create your first budget</p>
+          <p className="text-[11px] text-blue-100 mt-0.5">
+            Set up categories & subcategories once — track every month in minutes. Tap to begin →
+          </p>
+        </Link>
+      )}
+
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-2">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/40 dark:to-blue-900/20 rounded-lg p-2.5">
