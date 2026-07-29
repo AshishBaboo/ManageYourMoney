@@ -4,7 +4,7 @@ import { Plus, Send, Trash2, X, Wallet, PiggyBank, CreditCard, Banknote, Pencil,
 import { supabase } from '../lib/supabase'
 import { formatCurrency } from '../lib/currency'
 import { ui } from '../lib/ui'
-import { Toast, useNotify } from '../components/Toast'
+import { Toast, BusyPill, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
 import Select from '../components/Select'
 import { useConfirm } from '../components/ConfirmDialog'
@@ -197,6 +197,7 @@ export default function Accounts(): JSX.Element {
   return (
     <div className={ui.page}>
       <Toast notice={notice} />
+      <BusyPill show={busy} />
       {confirmDialog}
 
       <div className="flex items-center justify-between">
@@ -352,7 +353,7 @@ export default function Accounts(): JSX.Element {
                   >
                     <Pencil className="w-3.5 h-3.5 text-gray-500" />
                   </button>
-                  <button onClick={() => deleteAccount(account.id)} aria-label={`Delete ${account.name}`} className={ui.iconBtnDanger}>
+                  <button onClick={() => run(() => deleteAccount(account.id))} aria-label={`Delete ${account.name}`} className={ui.iconBtnDanger}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>

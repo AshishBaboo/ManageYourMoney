@@ -7,7 +7,7 @@ import { format, addMonths, subMonths } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { formatCurrency, currencySymbol } from '../lib/currency'
 import { ui } from '../lib/ui'
-import { Toast, useNotify } from '../components/Toast'
+import { Toast, BusyPill, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
 import AutocompleteInput from '../components/AutocompleteInput'
 import Select from '../components/Select'
@@ -559,7 +559,7 @@ export default function Budget(): JSX.Element {
           <button onClick={() => setEditingLimit({ categoryId: cat.id, value: limitFor(cat) ? String(limitFor(cat)) : '' })} aria-label={`Edit amount for ${cat.name}`} className={`${ui.iconBtn} !p-1`}>
             <Pencil className="w-3 h-3 text-gray-500" />
           </button>
-          <button onClick={() => deleteCategory(cat.id)} aria-label={`Delete ${cat.name}`} className={`${ui.iconBtnDanger} !p-1`}>
+          <button onClick={() => run(() => deleteCategory(cat.id))} aria-label={`Delete ${cat.name}`} className={`${ui.iconBtnDanger} !p-1`}>
             <Trash2 className="w-3 h-3" />
           </button>
         </div>
@@ -582,7 +582,7 @@ export default function Budget(): JSX.Element {
                     <button onClick={() => setEditingLimit({ categoryId: sub.id, value: sLimit ? String(sLimit) : '' })} aria-label={`Edit amount for ${sub.name}`} className={ui.iconBtn}>
                       <Pencil className="w-2.5 h-2.5 text-gray-500" />
                     </button>
-                    <button onClick={() => deleteCategory(sub.id)} aria-label={`Delete ${sub.name}`} className={ui.iconBtnDanger}>
+                    <button onClick={() => run(() => deleteCategory(sub.id))} aria-label={`Delete ${sub.name}`} className={ui.iconBtnDanger}>
                       <Trash2 className="w-2.5 h-2.5" />
                     </button>
                   </div>
@@ -626,6 +626,7 @@ export default function Budget(): JSX.Element {
   return (
     <div className={ui.page}>
       <Toast notice={notice} />
+      <BusyPill show={busy} />
       {confirmDialog}
 
       {/* Month header — tap the month name to see all budget months */}
@@ -880,8 +881,8 @@ export default function Budget(): JSX.Element {
             All budgeted amounts for this month are removed. Your categories and transactions are NOT deleted.
           </p>
           <div className="flex gap-1.5">
-            <button onClick={deleteMonthBudget} className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-md hover:bg-red-700 transition">
-              Yes, delete {format(currentMonth, 'MMMM')} budget
+            <button onClick={() => run(deleteMonthBudget)} disabled={busy} className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-md hover:bg-red-700 transition disabled:opacity-50">
+              {busy ? 'Deleting...' : `Yes, delete ${format(currentMonth, 'MMMM')} budget`}
             </button>
             <button onClick={() => setConfirmingDelete(false)} className={ui.btnSecondary}>Cancel</button>
           </div>

@@ -3,7 +3,7 @@ import { Plus, Trash2, X, PlusCircle, Pencil, Check } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { formatCurrency, currencySymbol } from '../lib/currency'
 import { ui } from '../lib/ui'
-import { Toast, useNotify } from '../components/Toast'
+import { Toast, BusyPill, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
 import { useConfirm } from '../components/ConfirmDialog'
 import { useBusy } from '../lib/useBusy'
@@ -149,6 +149,7 @@ export default function Goals(): JSX.Element {
   return (
     <div className={ui.page}>
       <Toast notice={notice} />
+      <BusyPill show={busy} />
       {confirmDialog}
 
       <div className="flex items-center justify-between">
@@ -256,7 +257,7 @@ export default function Goals(): JSX.Element {
                     >
                       <Pencil className="w-3.5 h-3.5 text-gray-500" />
                     </button>
-                    <button onClick={() => deleteGoal(goal.id)} aria-label={`Delete ${goal.name}`} className={ui.iconBtnDanger}>
+                    <button onClick={() => run(() => deleteGoal(goal.id))} aria-label={`Delete ${goal.name}`} className={ui.iconBtnDanger}>
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>

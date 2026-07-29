@@ -5,7 +5,7 @@ import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { formatCurrency } from '../lib/currency'
 import { ui } from '../lib/ui'
-import { Toast, useNotify } from '../components/Toast'
+import { Toast, BusyPill, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
 import Select from '../components/Select'
 import { useConfirm } from '../components/ConfirmDialog'
@@ -131,6 +131,7 @@ export default function Dashboard(): JSX.Element {
   return (
     <div className={ui.page}>
       <Toast notice={notice} />
+      <BusyPill show={busy} />
       {confirmDialog}
 
       {/* Fresh user: point them at the budget — the heart of the app */}
@@ -179,7 +180,7 @@ export default function Dashboard(): JSX.Element {
                   <p className={`${ui.sub} capitalize`}>{account.type}</p>
                 </div>
                 <p className={`${ui.strong} mr-2 whitespace-nowrap`}>{formatCurrency(account.balance)}</p>
-                <button onClick={() => deleteAccount(account.id)} aria-label={`Delete ${account.name}`} className={ui.iconBtnDanger}>
+                <button onClick={() => run(() => deleteAccount(account.id))} aria-label={`Delete ${account.name}`} className={ui.iconBtnDanger}>
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -275,7 +276,7 @@ export default function Dashboard(): JSX.Element {
                 }`}>
                   {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
                 </p>
-                <button onClick={() => deleteTransaction(tx.id)} aria-label="Delete transaction" className={ui.iconBtnDanger}>
+                <button onClick={() => run(() => deleteTransaction(tx.id))} aria-label="Delete transaction" className={ui.iconBtnDanger}>
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>

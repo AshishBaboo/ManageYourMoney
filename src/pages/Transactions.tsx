@@ -5,7 +5,7 @@ import { format, addMonths, subMonths } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { formatCurrency, currencySymbol } from '../lib/currency'
 import { ui } from '../lib/ui'
-import { Toast, useNotify } from '../components/Toast'
+import { Toast, BusyPill, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
 import AutocompleteInput from '../components/AutocompleteInput'
 import Select from '../components/Select'
@@ -258,6 +258,7 @@ export default function Transactions(): JSX.Element {
   return (
     <div className={ui.page}>
       <Toast notice={notice} />
+      <BusyPill show={busy} />
       {confirmDialog}
 
       <div className="flex items-center justify-between">
@@ -484,7 +485,7 @@ export default function Transactions(): JSX.Element {
                     </button>
                   )}
                   <button
-                    onClick={() => tx.type === 'transfer' ? deleteTransfer(tx, pair) : deleteTransaction(tx)}
+                    onClick={() => run(() => tx.type === 'transfer' ? deleteTransfer(tx, pair) : deleteTransaction(tx))}
                     aria-label="Delete transaction" className={ui.iconBtnDanger}
                   >
                     <Trash2 className="w-3.5 h-3.5" />

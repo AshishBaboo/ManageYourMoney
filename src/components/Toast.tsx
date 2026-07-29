@@ -18,6 +18,17 @@ export function useNotify() {
   return { notice, notify }
 }
 
+// Floating pill shown while a save/delete is in flight
+export function BusyPill({ show, label = 'Working...' }: { show: boolean; label?: string }) {
+  if (!show) return null
+  return (
+    <div className="fixed top-14 left-1/2 -translate-x-1/2 z-[65] flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-900/90 dark:bg-gray-700 text-white text-xs shadow-lg">
+      <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+      {label}
+    </div>
+  )
+}
+
 export function Toast({ notice }: { notice: Notice | null }) {
   if (!notice) return null
   return (

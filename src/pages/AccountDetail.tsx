@@ -5,10 +5,11 @@ import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { formatCurrency } from '../lib/currency'
 import { ui } from '../lib/ui'
-import { Toast, useNotify } from '../components/Toast'
+import { Toast, BusyPill, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
 import { formatTxDate, sortTx } from '../lib/tx'
 import { useConfirm } from '../components/ConfirmDialog'
+import { useBusy } from '../lib/useBusy'
 
 interface Account { id: string; name: string; type: string; balance: number; is_default?: boolean | null }
 interface Tx {
@@ -27,6 +28,7 @@ export default function AccountDetail(): JSX.Element {
   const [loading, setLoading] = useState(true)
   const { notice, notify } = useNotify()
   const { confirm, confirmDialog } = useConfirm()
+  const { busy, run } = useBusy()
 
   useEffect(() => { load() }, [id])
 
@@ -117,6 +119,7 @@ export default function AccountDetail(): JSX.Element {
   return (
     <div className={ui.page}>
       <Toast notice={notice} />
+      <BusyPill show={busy} />
       {confirmDialog}
 
       {/* Header */}
@@ -193,7 +196,7 @@ export default function AccountDetail(): JSX.Element {
                       </p>
                     </div>
                     <p className={`text-xs font-semibold whitespace-nowrap mx-1.5 ${v.amountClass}`}>{v.amountText}</p>
-                    <button onClick={() => deleteTx(t)} aria-label="Delete transaction" className={ui.iconBtnDanger}>
+                    <button onClick={() => run(() => deleteTx(t))} aria-label="Delete transaction" className={ui.iconBtnDanger}>
                       <Trash2 className="w-3 h-3" />
                     </button>
                   </div>

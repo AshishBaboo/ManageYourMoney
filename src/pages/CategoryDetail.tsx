@@ -7,7 +7,7 @@ import { format, addMonths, subMonths } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { formatCurrency, currencySymbol } from '../lib/currency'
 import { ui } from '../lib/ui'
-import { Toast, useNotify } from '../components/Toast'
+import { Toast, BusyPill, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
 import AutocompleteInput from '../components/AutocompleteInput'
 import Select from '../components/Select'
@@ -310,7 +310,7 @@ export default function CategoryDetail(): JSX.Element {
       <button onClick={() => setEditingTx({ id: tx.id, description: tx.description, amount: String(tx.amount), date: tx.date })} aria-label="Edit transaction" className={ui.iconBtn}>
         <Pencil className="w-3 h-3 text-gray-500" />
       </button>
-      <button onClick={() => deleteTx(tx)} aria-label="Delete transaction" className={ui.iconBtnDanger}>
+      <button onClick={() => run(() => deleteTx(tx))} aria-label="Delete transaction" className={ui.iconBtnDanger}>
         <Trash2 className="w-3 h-3" />
       </button>
     </div>
@@ -350,6 +350,7 @@ export default function CategoryDetail(): JSX.Element {
   return (
     <div className={ui.page}>
       <Toast notice={notice} />
+      <BusyPill show={busy} />
       {confirmDialog}
 
       {/* Header with back */}
@@ -492,7 +493,7 @@ export default function CategoryDetail(): JSX.Element {
               <button onClick={() => setEditingLimit({ categoryId: sub.id, value: sLimit ? String(sLimit) : '' })} aria-label={`Edit amount for ${sub.name}`} className={ui.iconBtn}>
                 <span className="text-[10px] font-semibold text-gray-500">{currencySymbol()}</span>
               </button>
-              <button onClick={() => deleteSub(sub.id)} aria-label={`Delete ${sub.name}`} className={ui.iconBtnDanger}>
+              <button onClick={() => run(() => deleteSub(sub.id))} aria-label={`Delete ${sub.name}`} className={ui.iconBtnDanger}>
                 <Trash2 className="w-3 h-3" />
               </button>
             </div>
