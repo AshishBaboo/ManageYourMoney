@@ -179,6 +179,7 @@ export default function Settings(): JSX.Element {
               onChange={(e) => setSettings({ ...settings, currency: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
+              <option>INR - Indian Rupee</option>
               <option>USD - US Dollar</option>
               <option>EUR - Euro</option>
               <option>GBP - British Pound</option>

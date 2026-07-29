@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Search, Download, ArrowUpRight, ArrowDownLeft, Plus, X } from 'lucide-react'
 import { mockTransactions, mockAccounts, mockCategories, transactionSuggestions } from '../data'
 import AutocompleteInput from '../components/AutocompleteInput'
+import { formatCurrency } from '../lib/currency'
 
 export default function Transactions(): JSX.Element {
   const [searchTerm, setSearchTerm] = useState('')
@@ -140,13 +141,13 @@ export default function Transactions(): JSX.Element {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600">$</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600">₹</span>
                   <input
                     type="number"
                     step="0.01"
                     value={formData.amount}
                     onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                    placeholder="0.00"
+                    placeholder="0"
                     className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -173,27 +174,27 @@ export default function Transactions(): JSX.Element {
       )}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl shadow p-6">
-          <p className="text-gray-600 text-sm mb-2">Total Income</p>
-          <h3 className="text-2xl font-bold text-green-600">
-            +${totalIncome.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="bg-white rounded shadow p-3">
+          <p className="text-gray-600 text-xs mb-1">Total Income</p>
+          <h3 className="text-lg font-semibold text-green-600">
+            +{formatCurrency(totalIncome)}
           </h3>
-          <p className="text-xs text-gray-600 mt-2">6 transactions</p>
+          <p className="text-xs text-gray-600 mt-1">6 transactions</p>
         </div>
-        <div className="bg-white rounded-xl shadow p-6">
-          <p className="text-gray-600 text-sm mb-2">Total Expenses</p>
-          <h3 className="text-2xl font-bold text-red-600">
-            -${totalExpense.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+        <div className="bg-white rounded shadow p-3">
+          <p className="text-gray-600 text-xs mb-1">Total Expenses</p>
+          <h3 className="text-lg font-semibold text-red-600">
+            -{formatCurrency(totalExpense)}
           </h3>
-          <p className="text-xs text-gray-600 mt-2">5 transactions</p>
+          <p className="text-xs text-gray-600 mt-1">5 transactions</p>
         </div>
-        <div className="bg-white rounded-xl shadow p-6">
-          <p className="text-gray-600 text-sm mb-2">Net Flow</p>
-          <h3 className="text-2xl font-bold text-blue-600">
-            ${(totalIncome - totalExpense).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+        <div className="bg-white rounded shadow p-3">
+          <p className="text-gray-600 text-xs mb-1">Net Flow</p>
+          <h3 className="text-lg font-semibold text-blue-600">
+            {formatCurrency(totalIncome - totalExpense)}
           </h3>
-          <p className="text-xs text-gray-600 mt-2">Overall balance</p>
+          <p className="text-xs text-gray-600 mt-1">Overall balance</p>
         </div>
       </div>
 
@@ -306,7 +307,7 @@ export default function Transactions(): JSX.Element {
                             tx.type === 'income' ? 'text-green-600' : 'text-red-600'
                           }`}
                         >
-                          {tx.type === 'income' ? '+' : '-'}${Math.abs(tx.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          {tx.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(tx.amount))}
                         </span>
                       </div>
                     </td>
