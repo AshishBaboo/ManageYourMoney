@@ -5,6 +5,14 @@ import { formatCurrency } from '../lib/currency'
 import { ui } from '../lib/ui'
 import { Toast, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
+import Select from '../components/Select'
+
+const TYPE_OPTIONS = [
+  { value: 'savings', label: 'Savings' },
+  { value: 'checking', label: 'Checking' },
+  { value: 'credit', label: 'Credit' },
+  { value: 'cash', label: 'Cash' },
+]
 
 interface Account {
   id: string
@@ -199,9 +207,7 @@ export default function Accounts(): JSX.Element {
             </div>
             <div>
               <label className={ui.label}>Type</label>
-              <select className={ui.select} value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
-                {Object.entries(TYPE_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-              </select>
+              <Select value={form.type} onChange={v => setForm({ ...form, type: v })} options={TYPE_OPTIONS} />
             </div>
             <div>
               <label className={ui.label}>Opening Balance</label>
@@ -223,17 +229,21 @@ export default function Accounts(): JSX.Element {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <div>
               <label className={ui.label}>From</label>
-              <select className={ui.select} value={transfer.from} onChange={e => setTransfer({ ...transfer, from: e.target.value })}>
-                <option value="">Select account</option>
-                {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({formatCurrency(a.balance)})</option>)}
-              </select>
+              <Select
+                value={transfer.from}
+                onChange={v => setTransfer({ ...transfer, from: v })}
+                placeholder="Select account"
+                options={accounts.map(a => ({ value: a.id, label: a.name, hint: formatCurrency(a.balance) }))}
+              />
             </div>
             <div>
               <label className={ui.label}>To</label>
-              <select className={ui.select} value={transfer.to} onChange={e => setTransfer({ ...transfer, to: e.target.value })}>
-                <option value="">Select account</option>
-                {accounts.filter(a => a.id !== transfer.from).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
+              <Select
+                value={transfer.to}
+                onChange={v => setTransfer({ ...transfer, to: v })}
+                placeholder="Select account"
+                options={accounts.filter(a => a.id !== transfer.from).map(a => ({ value: a.id, label: a.name }))}
+              />
             </div>
             <div>
               <label className={ui.label}>Amount</label>
@@ -261,10 +271,12 @@ export default function Accounts(): JSX.Element {
                     <div className="flex gap-1.5">
                       <input className={ui.input} value={editing.name} placeholder="Account name"
                         onChange={e => setEditing({ ...editing, name: e.target.value })} autoFocus />
-                      <select className={`${ui.select} w-28`} value={editing.type}
-                        onChange={e => setEditing({ ...editing, type: e.target.value })}>
-                        {Object.entries(TYPE_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                      </select>
+                      <Select
+                        className="w-28"
+                        value={editing.type}
+                        onChange={v => setEditing({ ...editing, type: v })}
+                        options={TYPE_OPTIONS}
+                      />
                       <input className={`${ui.input} !w-28`} type="number" value={editing.balance} placeholder="Balance"
                         onChange={e => setEditing({ ...editing, balance: e.target.value })} />
                     </div>

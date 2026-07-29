@@ -10,6 +10,7 @@ import { ui } from '../lib/ui'
 import { Toast, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
 import AutocompleteInput from '../components/AutocompleteInput'
+import Select from '../components/Select'
 import { insertTransaction, occurredAtFor } from '../lib/tx'
 import { saveOrder, bySortOrder, defaultAccountId } from '../lib/userData'
 
@@ -338,14 +339,13 @@ export default function Budget(): JSX.Element {
           />
         </div>
         {accounts.length > 0 && (
-          <select
-            className={`${ui.select} w-32`}
+          <Select
+            className="w-32"
             value={quickAdd.accountId}
-            onChange={e => setQuickAdd({ ...quickAdd, accountId: e.target.value })}
-          >
-            <option value="">No account</option>
-            {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
+            onChange={v => setQuickAdd({ ...quickAdd, accountId: v })}
+            placeholder="No account"
+            options={[{ value: '', label: 'No account' }, ...accounts.map(a => ({ value: a.id, label: a.name }))]}
+          />
         )}
       </div>
       <div className="flex gap-1.5">
@@ -380,46 +380,55 @@ export default function Budget(): JSX.Element {
     const left = limit - spent
 
     return (
-      <div className={`${ui.card} !p-2.5`}>
-        <div className="flex items-center gap-2">
+      <div className={`${ui.card} !p-2`}>
+        {/* row 1: avatar, name, spent/limit, quick add */}
+        <div className="flex items-center gap-1.5">
           <button
             onClick={() => navigate(`/budget/c/${cat.id}?m=${monthStr}`)}
-            className="flex items-center gap-2 flex-1 min-w-0 text-left"
+            className="flex items-center gap-1.5 flex-1 min-w-0 text-left"
             aria-label={`Open ${cat.name}`}
           >
             <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold shrink-0"
+              className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-semibold shrink-0"
               style={{ backgroundColor: colorFor(cat) }}
             >
               {cat.icon || cat.name[0].toUpperCase()}
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <p className={`${ui.strong} truncate`}>{cat.name}</p>
-                <p className={ui.sub}>{isIncome ? 'Goal' : 'Budgeted'} <span className="font-semibold text-gray-800 dark:text-gray-200">{formatCurrency(limit)}</span></p>
-              </div>
-              <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                {formatCurrency(spent)} <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400">{isIncome ? 'earned' : 'spent'}</span>
-              </p>
-            </div>
+            <p className={`${ui.strong} truncate flex-1`}>{cat.name}</p>
+            <p className="text-[11px] whitespace-nowrap text-gray-500 dark:text-gray-400">
+              <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(spent)}</span>
+              {limit > 0 ? ` / ${formatCurrency(limit)}` : ''} {isIncome ? 'earned' : ''}
+            </p>
           </button>
-          <button onClick={() => openQuickAdd(cat.id)} aria-label={`Add to ${cat.name}`} className={`${ui.iconBtn} !p-2 text-blue-600 dark:text-blue-400`}>
+          <button onClick={() => openQuickAdd(cat.id)} aria-label={`Add to ${cat.name}`} className={`${ui.iconBtn} !p-1 text-blue-600 dark:text-blue-400`}>
             <Plus className="w-4 h-4" />
           </button>
         </div>
 
-        {/* progress — % inside the bar, colored Left callout */}
-        <div className="mt-1.5">
-          <div className={`relative ${ui.progressTrack} !h-3.5 overflow-hidden`}>
-            <div
-              className={`h-3.5 rounded-full transition-all ${isIncome ? 'bg-violet-500' : barColor(pct)}`}
-              style={{ width: `${Math.min(pct, 100)}%` }}
-            />
-            <span className={`absolute inset-0 flex items-center justify-center text-[9px] font-semibold ${pct > 40 ? 'text-white' : 'text-gray-600 dark:text-gray-300'}`}>
-              {pct.toFixed(2)}%
-            </span>
-          </div>
-          <p className={`mt-0.5 text-[10px] font-medium ${
+        {/* row 2: progress bar with % inside */}
+        <div className={`mt-1 relative ${ui.progressTrack} !h-2.5 overflow-hidden`}>
+          <div
+            className={`h-2.5 rounded-full transition-all ${isIncome ? 'bg-violet-500' : barColor(pct)}`}
+            style={{ width: `${Math.min(pct, 100)}%` }}
+          />
+          <span className={`absolute inset-0 flex items-center justify-center text-[8px] font-semibold ${pct > 40 ? 'text-white' : 'text-gray-600 dark:text-gray-300'}`}>
+            {pct.toFixed(1)}%
+          </span>
+        </div>
+
+        <QuickAddPanel node={cat} />
+        <LimitEditor node={cat} />
+
+        {/* row 3: subcats toggle, left amount, actions — one thin line */}
+        <div className="mt-1 flex items-center gap-1 text-[10px]">
+          <button
+            onClick={() => setExpanded(prev => { const n = new Set(prev); n.has(cat.id) ? n.delete(cat.id) : n.add(cat.id); return n })}
+            className="flex items-center gap-0.5 text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            {children.length} sub{children.length === 1 ? '' : 's'}
+          </button>
+          <span className={`ml-1.5 font-medium ${
             limit <= 0 ? 'text-gray-400 dark:text-gray-500'
             : left < 0 ? (isIncome ? 'text-green-600 dark:text-green-400' : 'text-red-500')
             : pct > 75 ? 'text-orange-500'
@@ -430,32 +439,18 @@ export default function Budget(): JSX.Element {
                 ? `${isIncome ? '+' : '-'}${formatCurrency(Math.abs(left))} ${isIncome ? 'over goal 🎉' : 'over'}`
                 : `${formatCurrency(left)} Left`
               : 'No amount set'}
-          </p>
-        </div>
-
-        <QuickAddPanel node={cat} />
-        <LimitEditor node={cat} />
-
-        {/* actions row */}
-        <div className="mt-1.5 flex items-center gap-1 text-[11px]">
-          <button
-            onClick={() => setExpanded(prev => { const n = new Set(prev); n.has(cat.id) ? n.delete(cat.id) : n.add(cat.id); return n })}
-            className="flex items-center gap-0.5 text-blue-600 dark:text-blue-400 hover:underline"
-          >
-            <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-            {children.length} subcategor{children.length === 1 ? 'y' : 'ies'}
-          </button>
+          </span>
           <span className="flex-1" />
-          <button onClick={() => moveCat(list, index, -1)} aria-label={`Move ${cat.name} up`} className={ui.iconBtn} disabled={index === 0}>
+          <button onClick={() => moveCat(list, index, -1)} aria-label={`Move ${cat.name} up`} className={`${ui.iconBtn} !p-1`} disabled={index === 0}>
             <ArrowUp className={`w-3 h-3 ${index === 0 ? 'text-gray-300 dark:text-gray-600' : 'text-gray-500'}`} />
           </button>
-          <button onClick={() => moveCat(list, index, 1)} aria-label={`Move ${cat.name} down`} className={ui.iconBtn} disabled={index === list.length - 1}>
+          <button onClick={() => moveCat(list, index, 1)} aria-label={`Move ${cat.name} down`} className={`${ui.iconBtn} !p-1`} disabled={index === list.length - 1}>
             <ArrowDown className={`w-3 h-3 ${index === list.length - 1 ? 'text-gray-300 dark:text-gray-600' : 'text-gray-500'}`} />
           </button>
-          <button onClick={() => setEditingLimit({ categoryId: cat.id, value: limitFor(cat) ? String(limitFor(cat)) : '' })} aria-label={`Edit amount for ${cat.name}`} className={ui.iconBtn}>
+          <button onClick={() => setEditingLimit({ categoryId: cat.id, value: limitFor(cat) ? String(limitFor(cat)) : '' })} aria-label={`Edit amount for ${cat.name}`} className={`${ui.iconBtn} !p-1`}>
             <Pencil className="w-3 h-3 text-gray-500" />
           </button>
-          <button onClick={() => deleteCategory(cat.id)} aria-label={`Delete ${cat.name}`} className={ui.iconBtnDanger}>
+          <button onClick={() => deleteCategory(cat.id)} aria-label={`Delete ${cat.name}`} className={`${ui.iconBtnDanger} !p-1`}>
             <Trash2 className="w-3 h-3" />
           </button>
         </div>
@@ -649,15 +644,14 @@ export default function Budget(): JSX.Element {
           <div className="grid grid-cols-2 gap-2 mb-2">
             <div>
               <label className={ui.label}>Copy from</label>
-              <select className={ui.select} value={cloneForm.from}
-                onChange={e => {
-                  const from = e.target.value
-                  setCloneForm({ ...cloneForm, from, to: format(addMonths(new Date(`${from}-01T00:00:00`), 1), 'yyyy-MM') })
-                }}>
-                {[...new Set([monthStr, ...budgetMonths])].sort().reverse().map(m => (
-                  <option key={m} value={m}>{format(new Date(`${m}-01T00:00:00`), 'MMMM yyyy')}</option>
-                ))}
-              </select>
+              <Select
+                value={cloneForm.from}
+                onChange={from => setCloneForm({ ...cloneForm, from, to: format(addMonths(new Date(`${from}-01T00:00:00`), 1), 'yyyy-MM') })}
+                options={[...new Set([monthStr, ...budgetMonths])].sort().reverse().map(m => ({
+                  value: m,
+                  label: format(new Date(`${m}-01T00:00:00`), 'MMMM yyyy'),
+                }))}
+              />
             </div>
             <div>
               <label className={ui.label}>Create for</label>
@@ -726,10 +720,14 @@ export default function Budget(): JSX.Element {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             <input className={ui.input} placeholder="Name (e.g. House Expenses)" value={catForm.name}
               onChange={e => setCatForm({ ...catForm, name: e.target.value })} autoFocus />
-            <select className={ui.select} value={catForm.type} onChange={e => setCatForm({ ...catForm, type: e.target.value as any })}>
-              <option value="expense">Expense</option>
-              <option value="income">Income</option>
-            </select>
+            <Select
+              value={catForm.type}
+              onChange={v => setCatForm({ ...catForm, type: v as 'income' | 'expense' })}
+              options={[
+                { value: 'expense', label: 'Expense' },
+                { value: 'income', label: 'Income' },
+              ]}
+            />
             <input className={ui.input} type="number" placeholder={`${catForm.type === 'income' ? 'Goal' : 'Budget'} for ${format(currentMonth, 'MMM')} (${currencySymbol()})`} value={catForm.amount}
               onChange={e => setCatForm({ ...catForm, amount: e.target.value })} />
           </div>

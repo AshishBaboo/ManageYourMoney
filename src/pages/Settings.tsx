@@ -7,6 +7,7 @@ import { getTheme, applyTheme, Theme } from '../lib/theme'
 import { displayName, initials, savePrefToDb } from '../lib/userData'
 import { ui } from '../lib/ui'
 import { Toast, useNotify } from '../components/Toast'
+import Select from '../components/Select'
 
 export default function Settings(): JSX.Element {
   const [user, setUser] = useState<User | null>(null)
@@ -139,11 +140,11 @@ export default function Settings(): JSX.Element {
           </div>
           <div>
             <label className={ui.label}>Currency</label>
-            <select className={ui.select} value={currency} onChange={e => changeCurrency(e.target.value)}>
-              {Object.entries(CURRENCIES).map(([code, c]) => (
-                <option key={code} value={code}>{c.label}</option>
-              ))}
-            </select>
+            <Select
+              value={currency}
+              onChange={changeCurrency}
+              options={Object.entries(CURRENCIES).map(([code, c]) => ({ value: code, label: c.label }))}
+            />
             <p className={`${ui.sub} mt-1`}>Applies everywhere amounts are shown. Default is INR (₹).</p>
           </div>
         </div>

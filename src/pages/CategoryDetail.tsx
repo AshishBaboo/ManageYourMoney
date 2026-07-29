@@ -10,6 +10,7 @@ import { ui } from '../lib/ui'
 import { Toast, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
 import AutocompleteInput from '../components/AutocompleteInput'
+import Select from '../components/Select'
 import { insertTransaction, updateTransaction, occurredAtFor, formatTxDate, sortTx } from '../lib/tx'
 import { saveOrder, bySortOrder, defaultAccountId } from '../lib/userData'
 
@@ -321,11 +322,13 @@ export default function CategoryDetail(): JSX.Element {
             suggestions={suggestions} placeholder={`Description (default "${nodeName}")`} />
         </div>
         {accounts.length > 0 && (
-          <select className={`${ui.select} w-28`} value={quickAdd.accountId}
-            onChange={e => setQuickAdd({ ...quickAdd, accountId: e.target.value })}>
-            <option value="">No account</option>
-            {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
+          <Select
+            className="w-28"
+            value={quickAdd.accountId}
+            onChange={v => setQuickAdd({ ...quickAdd, accountId: v })}
+            placeholder="No account"
+            options={[{ value: '', label: 'No account' }, ...accounts.map(a => ({ value: a.id, label: a.name }))]}
+          />
         )}
       </div>
       <div className="flex gap-1.5">

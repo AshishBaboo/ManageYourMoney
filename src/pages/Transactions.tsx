@@ -8,6 +8,7 @@ import { ui } from '../lib/ui'
 import { Toast, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
 import AutocompleteInput from '../components/AutocompleteInput'
+import Select from '../components/Select'
 import { insertTransaction, updateTransaction, occurredAtFor, formatTxDate, sortTx } from '../lib/tx'
 import { defaultAccountId } from '../lib/userData'
 
@@ -258,35 +259,43 @@ export default function Transactions(): JSX.Element {
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 <div>
                   <label className={ui.label}>Type</label>
-                  <select className={ui.select} value={form.type}
-                    onChange={e => setForm({ ...form, type: e.target.value as 'income' | 'expense', categoryId: '' })}>
-                    <option value="expense">Expense</option>
-                    <option value="income">Income</option>
-                  </select>
+                  <Select
+                    value={form.type}
+                    onChange={v => setForm({ ...form, type: v as 'income' | 'expense', categoryId: '' })}
+                    options={[
+                      { value: 'expense', label: 'Expense' },
+                      { value: 'income', label: 'Income' },
+                    ]}
+                  />
                 </div>
                 <div>
                   <label className={ui.label}>Account</label>
-                  <select className={ui.select} value={form.accountId} onChange={e => setForm({ ...form, accountId: e.target.value })}>
-                    <option value="">Select</option>
-                    {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
+                  <Select
+                    value={form.accountId}
+                    onChange={v => setForm({ ...form, accountId: v })}
+                    placeholder="Select account"
+                    options={accounts.map(a => ({ value: a.id, label: a.name }))}
+                  />
                 </div>
                 <div>
                   <label className={ui.label}>Category</label>
-                  <select className={ui.select} value={form.categoryId} onChange={e => setForm({ ...form, categoryId: e.target.value })}>
-                    <option value="">None</option>
-                    {formCategories.filter(c => !c.parent_id).map(c => {
-                      const subs = formCategories.filter(s => s.parent_id === c.id)
-                      return subs.length > 0 ? (
-                        <optgroup key={c.id} label={c.name}>
-                          <option value={c.id}>{c.name} (general)</option>
-                          {subs.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                        </optgroup>
-                      ) : (
-                        <option key={c.id} value={c.id}>{c.icon ? `${c.icon} ` : ''}{c.name}</option>
-                      )
-                    })}
-                  </select>
+                  <Select
+                    value={form.categoryId}
+                    onChange={v => setForm({ ...form, categoryId: v })}
+                    placeholder="None"
+                    options={[
+                      { value: '', label: 'None' },
+                      ...formCategories.filter(c => !c.parent_id).flatMap(c => {
+                        const subs = formCategories.filter(s => s.parent_id === c.id)
+                        return subs.length > 0
+                          ? [
+                              { value: c.id, label: `${c.name} (general)`, group: c.name },
+                              ...subs.map(s => ({ value: s.id, label: s.name, group: c.name })),
+                            ]
+                          : [{ value: c.id, label: `${c.icon ? `${c.icon} ` : ''}${c.name}` }]
+                      }),
+                    ]}
+                  />
                 </div>
                 <div className="col-span-2 md:col-span-1">
                   <label className={ui.label}>Description</label>

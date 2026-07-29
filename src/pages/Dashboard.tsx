@@ -7,6 +7,7 @@ import { formatCurrency } from '../lib/currency'
 import { ui } from '../lib/ui'
 import { Toast, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
+import Select from '../components/Select'
 
 interface Account { id: string; name: string; type: string; balance: number }
 interface Tx { id: string; description: string; amount: number; type: string; date: string; account_id: string | null }
@@ -175,12 +176,17 @@ export default function Dashboard(): JSX.Element {
             placeholder="Name"
             className={ui.input}
           />
-          <select value={newAccountType} onChange={e => setNewAccountType(e.target.value)} className={`${ui.select} w-28`}>
-            <option value="savings">Savings</option>
-            <option value="checking">Checking</option>
-            <option value="credit">Credit</option>
-            <option value="cash">Cash</option>
-          </select>
+          <Select
+            className="w-28"
+            value={newAccountType}
+            onChange={setNewAccountType}
+            options={[
+              { value: 'savings', label: 'Savings' },
+              { value: 'checking', label: 'Checking' },
+              { value: 'credit', label: 'Credit' },
+              { value: 'cash', label: 'Cash' },
+            ]}
+          />
           <input
             type="number"
             value={newAccountBalance}
