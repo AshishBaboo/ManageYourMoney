@@ -340,16 +340,30 @@ export default function Budget(): JSX.Element {
           </button>
         </div>
 
-        {/* progress */}
-        <div className="mt-1.5 flex items-center gap-2">
-          <div className={`flex-1 ${ui.progressTrack} !h-2`}>
-            <div className={`h-2 rounded-full transition-all ${isIncome ? 'bg-violet-500' : barColor(pct)}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+        {/* progress — % inside the bar, colored Left callout */}
+        <div className="mt-1.5">
+          <div className={`relative ${ui.progressTrack} !h-3.5 overflow-hidden`}>
+            <div
+              className={`h-3.5 rounded-full transition-all ${isIncome ? 'bg-violet-500' : barColor(pct)}`}
+              style={{ width: `${Math.min(pct, 100)}%` }}
+            />
+            <span className={`absolute inset-0 flex items-center justify-center text-[9px] font-semibold ${pct > 40 ? 'text-white' : 'text-gray-600 dark:text-gray-300'}`}>
+              {pct.toFixed(2)}%
+            </span>
           </div>
-          <span className="text-[10px] font-medium text-gray-600 dark:text-gray-300 w-12 text-right">{pct.toFixed(1)}%</span>
+          <p className={`mt-0.5 text-[10px] font-medium ${
+            limit <= 0 ? 'text-gray-400 dark:text-gray-500'
+            : left < 0 ? (isIncome ? 'text-green-600 dark:text-green-400' : 'text-red-500')
+            : pct > 75 ? 'text-orange-500'
+            : 'text-green-600 dark:text-green-400'
+          }`}>
+            {limit > 0
+              ? left < 0
+                ? `${isIncome ? '+' : '-'}${formatCurrency(Math.abs(left))} ${isIncome ? 'over goal 🎉' : 'over'}`
+                : `${formatCurrency(left)} Left`
+              : 'No amount set'}
+          </p>
         </div>
-        <p className={`mt-0.5 text-[10px] ${left < 0 ? 'text-red-500 font-semibold' : 'text-gray-500 dark:text-gray-400'}`}>
-          {limit > 0 ? `${formatCurrency(Math.abs(left))} ${left < 0 ? (isIncome ? 'over goal 🎉' : 'over budget') : 'left'}` : 'No amount set'}
-        </p>
 
         <QuickAddPanel node={cat} />
         <LimitEditor node={cat} />
@@ -470,37 +484,65 @@ export default function Budget(): JSX.Element {
         )}
       </div>
 
-      {/* Overview */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-3 text-white">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          <div>
-            <p className="text-[11px] text-blue-100">Income Earned</p>
-            <p className="text-sm font-semibold">{formatCurrency(incomeEarned)}</p>
-            {incomeGoal > 0 && <p className="text-[10px] text-blue-100">of {formatCurrency(incomeGoal)} goal</p>}
+      {/* Overview — iSaveMoney style: income, provisional balance, budgeted, remaining, saving donut */}
+      <div className={`${ui.card} !p-3`}>
+        <div className="flex gap-3">
+          <div className="flex-1 min-w-0 space-y-2.5">
+            <div>
+              <p className={ui.sub}>Total Income</p>
+              <p className="text-base font-semibold text-green-600 dark:text-green-400">{formatCurrency(incomeEarned)}</p>
+              {incomeGoal > 0 && (
+                <div className={`mt-1 ${ui.progressTrack}`}>
+                  <div className="h-1.5 rounded-full bg-green-500" style={{ width: `${Math.min((incomeEarned / incomeGoal) * 100, 100)}%` }} />
+                </div>
+              )}
+              <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5">
+                Provisional Balance <span className="font-semibold">{formatCurrency(incomeEarned - totalBudgeted)}</span>
+              </p>
+            </div>
+            <div>
+              <p className={ui.sub}>Total Budgeted</p>
+              <p className="text-base font-semibold text-violet-600 dark:text-violet-400">{formatCurrency(totalBudgeted)}</p>
+              {totalBudgeted > 0 && (
+                <div className={`mt-1 relative ${ui.progressTrack} !h-2 overflow-hidden`}>
+                  <div
+                    className={`h-2 rounded-full ${totalSpent / totalBudgeted > 1 ? 'bg-red-500' : 'bg-amber-400'}`}
+                    style={{ width: `${Math.min((totalSpent / totalBudgeted) * 100, 100)}%` }}
+                  />
+                </div>
+              )}
+              <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5">
+                Remaining to spend <span className="font-semibold">{formatCurrency(totalBudgeted - totalSpent)}</span>
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-[11px] text-blue-100">Budgeted</p>
-            <p className="text-sm font-semibold">{formatCurrency(totalBudgeted)}</p>
-          </div>
-          <div>
-            <p className="text-[11px] text-blue-100">Spent</p>
-            <p className="text-sm font-semibold">{formatCurrency(totalSpent)}</p>
-          </div>
-          <div>
-            <p className="text-[11px] text-blue-100">Remaining</p>
-            <p className={`text-sm font-semibold ${totalBudgeted - totalSpent < 0 ? 'text-red-300' : 'text-green-300'}`}>
-              {formatCurrency(totalBudgeted - totalSpent)}
-            </p>
+
+          {/* Saving donut */}
+          <div className="flex flex-col items-center justify-center shrink-0 w-28">
+            <p className="text-[10px] text-violet-600 dark:text-violet-400">Saving</p>
+            <p className="text-sm font-semibold text-violet-600 dark:text-violet-400 mb-1">{formatCurrency(incomeEarned - totalSpent)}</p>
+            {(() => {
+              const spentPct = incomeEarned > 0 ? Math.min((totalSpent / incomeEarned) * 100, 100) : 0
+              return (
+                <div className="relative w-20 h-20">
+                  <svg viewBox="0 0 36 36" className="w-20 h-20 -rotate-90">
+                    <circle cx="18" cy="18" r="15.9" fill="none" className="stroke-gray-200 dark:stroke-gray-600" strokeWidth="3.4" />
+                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="#8b5cf6" strokeWidth="3.4"
+                      strokeDasharray={`${100 - spentPct} ${spentPct}`} strokeLinecap="round" />
+                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="#22c55e" strokeWidth="3.4"
+                      strokeDasharray={`${spentPct} ${100 - spentPct}`} strokeDashoffset={-(100 - spentPct)} strokeLinecap="round" />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-[8px] text-gray-500 dark:text-gray-400 leading-none">Income spent</span>
+                    <span className="text-sm font-semibold text-green-600 dark:text-green-400">
+                      {incomeEarned > 0 ? Math.round((totalSpent / incomeEarned) * 100) : 0}%
+                    </span>
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         </div>
-        {totalBudgeted > 0 && (
-          <div className="mt-2 w-full bg-white/20 rounded-full h-1.5">
-            <div
-              className={`h-1.5 rounded-full ${totalSpent / totalBudgeted > 0.9 ? 'bg-red-400' : totalSpent / totalBudgeted > 0.75 ? 'bg-yellow-300' : 'bg-green-300'}`}
-              style={{ width: `${Math.min((totalSpent / totalBudgeted) * 100, 100)}%` }}
-            />
-          </div>
-        )}
       </div>
 
       {/* Copy last month */}
