@@ -12,6 +12,7 @@ import Loader from '../components/Loader'
 import AutocompleteInput from '../components/AutocompleteInput'
 import Select from '../components/Select'
 import { useConfirm } from '../components/ConfirmDialog'
+import { useBusy } from '../lib/useBusy'
 import { insertTransaction, occurredAtFor } from '../lib/tx'
 import { saveOrder, bySortOrder, defaultAccountId } from '../lib/userData'
 
@@ -47,6 +48,7 @@ export default function Budget(): JSX.Element {
   const [loading, setLoading] = useState(true)
   const { notice, notify } = useNotify()
   const { confirm, confirmDialog } = useConfirm()
+  const { busy, run } = useBusy()
 
   const [showAddCat, setShowAddCat] = useState(false)
   const [catForm, setCatForm] = useState({ name: '', type: 'expense' as 'income' | 'expense', amount: '' })
@@ -456,7 +458,7 @@ export default function Budget(): JSX.Element {
         )}
       </div>
       <div className="flex gap-1.5">
-        <button onClick={saveQuickAdd} className={ui.btnPrimary}>Save</button>
+        <button onClick={() => run(saveQuickAdd)} disabled={busy} className={ui.btnPrimary}>{busy ? 'Saving...' : 'Save'}</button>
         <button onClick={() => setQuickAdd(null)} className={ui.btnSecondary}>Cancel</button>
       </div>
     </div>
@@ -472,7 +474,7 @@ export default function Budget(): JSX.Element {
         onChange={e => setEditingLimit({ ...editingLimit, value: e.target.value })}
         autoFocus
       />
-      <button onClick={saveLimit} className={ui.btnPrimary}>Set</button>
+      <button onClick={() => run(saveLimit)} disabled={busy} className={ui.btnPrimary}>{busy ? 'Saving...' : 'Set'}</button>
       <button onClick={() => setEditingLimit(null)} className={ui.btnSecondary}>Cancel</button>
     </div>
   ) : null
@@ -602,9 +604,10 @@ export default function Budget(): JSX.Element {
                 <input className={`${ui.input} !w-24`} type="number" placeholder={currencySymbol()} value={subForm.amount}
                   onChange={e => setSubForm({ ...subForm, amount: e.target.value })} />
                 <button
-                  onClick={async () => { if (await addCategory(cat.id, subForm.name, cat.type, subForm.amount)) setSubForm(null) }}
+                  onClick={() => run(async () => { if (await addCategory(cat.id, subForm.name, cat.type, subForm.amount)) setSubForm(null) })}
+                  disabled={busy}
                   className={ui.btnPrimary}
-                >Add</button>
+                >{busy ? 'Saving...' : 'Add'}</button>
                 <button onClick={() => setSubForm(null)} className={ui.btnSecondary}>✕</button>
               </div>
             ) : (
@@ -906,15 +909,16 @@ export default function Budget(): JSX.Element {
               onChange={e => setCatForm({ ...catForm, amount: e.target.value })} />
           </div>
           <button
-            onClick={async () => {
+            onClick={() => run(async () => {
               if (await addCategory(null, catForm.name, catForm.type, catForm.amount)) {
                 setCatForm({ name: '', type: 'expense', amount: '' })
                 setShowAddCat(false)
               }
-            }}
+            })}
+            disabled={busy}
             className={`${ui.btnPrimary} mt-2 w-full md:w-auto`}
           >
-            Save Category
+            {busy ? 'Saving...' : 'Save Category'}
           </button>
         </div>
       )}

@@ -8,6 +8,7 @@ import { Toast, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
 import Select from '../components/Select'
 import { useConfirm } from '../components/ConfirmDialog'
+import { useBusy } from '../lib/useBusy'
 
 const TYPE_OPTIONS = [
   { value: 'savings', label: 'Savings' },
@@ -41,6 +42,7 @@ export default function Accounts(): JSX.Element {
   const [editing, setEditing] = useState<{ id: string; name: string; type: string; balance: string } | null>(null)
   const { notice, notify } = useNotify()
   const { confirm, confirmDialog } = useConfirm()
+  const { busy, run } = useBusy()
   const navigate = useNavigate()
 
   const setFavorite = async (id: string) => {
@@ -246,7 +248,7 @@ export default function Accounts(): JSX.Element {
                 onChange={e => setForm({ ...form, balance: e.target.value })} />
             </div>
           </div>
-          <button onClick={addAccount} className={`${ui.btnPrimary} mt-2 w-full md:w-auto`}>Save Account</button>
+          <button onClick={() => run(addAccount)} disabled={busy} className={`${ui.btnPrimary} mt-2 w-full md:w-auto`}>{busy ? 'Saving...' : 'Save Account'}</button>
         </div>
       )}
 
@@ -282,7 +284,7 @@ export default function Accounts(): JSX.Element {
                 onChange={e => setTransfer({ ...transfer, amount: e.target.value })} />
             </div>
           </div>
-          <button onClick={doTransfer} className={`${ui.btnPrimary} mt-2 w-full md:w-auto`}>Transfer Now</button>
+          <button onClick={() => run(doTransfer)} disabled={busy} className={`${ui.btnPrimary} mt-2 w-full md:w-auto`}>{busy ? 'Transferring...' : 'Transfer Now'}</button>
         </div>
       )}
 
@@ -312,7 +314,7 @@ export default function Accounts(): JSX.Element {
                         onChange={e => setEditing({ ...editing, balance: e.target.value })} />
                     </div>
                     <div className="flex gap-1.5">
-                      <button onClick={saveEdit} className={ui.btnPrimary}>
+                      <button onClick={() => run(saveEdit)} disabled={busy} className={ui.btnPrimary}>
                         <span className="flex items-center gap-1"><Check className="w-3 h-3" /> Save</span>
                       </button>
                       <button onClick={() => setEditing(null)} className={ui.btnSecondary}>Cancel</button>

@@ -10,6 +10,7 @@ import Loader from '../components/Loader'
 import AutocompleteInput from '../components/AutocompleteInput'
 import Select from '../components/Select'
 import { useConfirm } from '../components/ConfirmDialog'
+import { useBusy } from '../lib/useBusy'
 import { insertTransaction, updateTransaction, occurredAtFor, formatTxDate, sortTx } from '../lib/tx'
 import { defaultAccountId } from '../lib/userData'
 
@@ -50,6 +51,7 @@ export default function Transactions(): JSX.Element {
   const monthStr = format(currentMonth, 'yyyy-MM')
   const { notice, notify } = useNotify()
   const { confirm, confirmDialog } = useConfirm()
+  const { busy, run } = useBusy()
 
   useEffect(() => { load() }, [monthStr])
 
@@ -369,7 +371,7 @@ export default function Transactions(): JSX.Element {
                 </div>
               </div>
               <div className="flex gap-2 mt-2">
-                <button onClick={addTransaction} className={ui.btnPrimary}>Save Transaction</button>
+                <button onClick={() => run(addTransaction)} disabled={busy} className={ui.btnPrimary}>{busy ? 'Saving...' : 'Save Transaction'}</button>
                 <button onClick={() => setShowAddForm(false)} className={ui.btnSecondary}>Cancel</button>
               </div>
             </>
@@ -435,7 +437,7 @@ export default function Transactions(): JSX.Element {
                         onChange={e => setEditingTx({ ...editingTx, date: e.target.value })} />
                     </div>
                     <div className="flex gap-1.5">
-                      <button onClick={saveTxEdit} className={ui.btnPrimary}>
+                      <button onClick={() => run(saveTxEdit)} disabled={busy} className={ui.btnPrimary}>
                         <span className="flex items-center gap-1"><Check className="w-3 h-3" /> Save</span>
                       </button>
                       <button onClick={() => setEditingTx(null)} className={ui.btnSecondary}>Cancel</button>

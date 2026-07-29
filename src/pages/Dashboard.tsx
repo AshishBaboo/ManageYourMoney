@@ -9,6 +9,7 @@ import { Toast, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
 import Select from '../components/Select'
 import { useConfirm } from '../components/ConfirmDialog'
+import { useBusy } from '../lib/useBusy'
 
 interface Account { id: string; name: string; type: string; balance: number }
 interface Tx { id: string; description: string; amount: number; type: string; date: string; account_id: string | null }
@@ -27,6 +28,7 @@ export default function Dashboard(): JSX.Element {
   const [loading, setLoading] = useState(true)
   const { notice, notify } = useNotify()
   const { confirm, confirmDialog } = useConfirm()
+  const { busy, run } = useBusy()
 
   const monthStr = format(new Date(), 'yyyy-MM')
 
@@ -211,7 +213,7 @@ export default function Dashboard(): JSX.Element {
             placeholder="Balance"
             className={`${ui.input} w-24`}
           />
-          <button onClick={addAccount} className={ui.btnPrimary}>
+          <button onClick={() => run(addAccount)} disabled={busy} className={ui.btnPrimary}>
             <Plus className="w-3.5 h-3.5" />
           </button>
         </div>

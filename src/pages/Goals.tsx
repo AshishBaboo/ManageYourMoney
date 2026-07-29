@@ -6,6 +6,7 @@ import { ui } from '../lib/ui'
 import { Toast, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
 import { useConfirm } from '../components/ConfirmDialog'
+import { useBusy } from '../lib/useBusy'
 
 interface Goal {
   id: string
@@ -31,6 +32,7 @@ export default function Goals(): JSX.Element {
   const [editing, setEditing] = useState<{ id: string; name: string; target: string; deadline: string } | null>(null)
   const { notice, notify } = useNotify()
   const { confirm, confirmDialog } = useConfirm()
+  const { busy, run } = useBusy()
 
   const saveEdit = async () => {
     if (!editing) return
@@ -205,7 +207,7 @@ export default function Goals(): JSX.Element {
                 onChange={e => setForm({ ...form, deadline: e.target.value })} />
             </div>
           </div>
-          <button onClick={() => addGoal()} className={`${ui.btnPrimary} mt-2 w-full md:w-auto`}>Create Goal</button>
+          <button onClick={() => run(() => addGoal())} disabled={busy} className={`${ui.btnPrimary} mt-2 w-full md:w-auto`}>{busy ? 'Saving...' : 'Create Goal'}</button>
         </div>
       )}
 
@@ -232,7 +234,7 @@ export default function Goals(): JSX.Element {
                         onChange={e => setEditing({ ...editing, deadline: e.target.value })} />
                     </div>
                     <div className="flex gap-1.5">
-                      <button onClick={saveEdit} className={ui.btnPrimary}>
+                      <button onClick={() => run(saveEdit)} disabled={busy} className={ui.btnPrimary}>
                         <span className="flex items-center gap-1"><Check className="w-3 h-3" /> Save</span>
                       </button>
                       <button onClick={() => setEditing(null)} className={ui.btnSecondary}>Cancel</button>
@@ -282,7 +284,7 @@ export default function Goals(): JSX.Element {
                       onChange={e => setAddingFunds({ ...addingFunds, value: e.target.value })}
                       autoFocus
                     />
-                    <button onClick={addFunds} className={ui.btnPrimary}>Add</button>
+                    <button onClick={() => run(addFunds)} disabled={busy} className={ui.btnPrimary}>{busy ? 'Saving...' : 'Add'}</button>
                     <button onClick={() => setAddingFunds(null)} className={ui.btnSecondary}>Cancel</button>
                   </div>
                 ) : (

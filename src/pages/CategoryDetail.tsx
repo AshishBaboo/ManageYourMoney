@@ -12,6 +12,7 @@ import Loader from '../components/Loader'
 import AutocompleteInput from '../components/AutocompleteInput'
 import Select from '../components/Select'
 import { useConfirm } from '../components/ConfirmDialog'
+import { useBusy } from '../lib/useBusy'
 import { insertTransaction, updateTransaction, occurredAtFor, formatTxDate, sortTx } from '../lib/tx'
 import { saveOrder, bySortOrder, defaultAccountId } from '../lib/userData'
 
@@ -39,6 +40,7 @@ export default function CategoryDetail(): JSX.Element {
   const [loading, setLoading] = useState(true)
   const { notice, notify } = useNotify()
   const { confirm, confirmDialog } = useConfirm()
+  const { busy, run } = useBusy()
 
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -292,7 +294,7 @@ export default function CategoryDetail(): JSX.Element {
           onChange={e => setEditingTx({ ...editingTx, date: e.target.value })} />
       </div>
       <div className="flex gap-1.5">
-        <button onClick={saveTxEdit} className={ui.btnPrimary}><span className="flex items-center gap-1"><Check className="w-3 h-3" /> Save</span></button>
+        <button onClick={() => run(saveTxEdit)} disabled={busy} className={ui.btnPrimary}><span className="flex items-center gap-1"><Check className="w-3 h-3" /> {busy ? 'Saving...' : 'Save'}</span></button>
         <button onClick={() => setEditingTx(null)} className={ui.btnSecondary}>Cancel</button>
       </div>
     </div>
@@ -339,7 +341,7 @@ export default function CategoryDetail(): JSX.Element {
         )}
       </div>
       <div className="flex gap-1.5">
-        <button onClick={saveQuickAdd} className={ui.btnPrimary}>Save</button>
+        <button onClick={() => run(saveQuickAdd)} disabled={busy} className={ui.btnPrimary}>{busy ? 'Saving...' : 'Save'}</button>
         <button onClick={() => setQuickAdd(null)} className={ui.btnSecondary}>Cancel</button>
       </div>
     </div>
@@ -358,7 +360,7 @@ export default function CategoryDetail(): JSX.Element {
         {renaming?.id === category.id ? (
           <div className="flex-1 flex gap-1.5">
             <input className={ui.input} value={renaming.name} onChange={e => setRenaming({ ...renaming, name: e.target.value })} autoFocus />
-            <button onClick={saveRename} className={ui.btnPrimary}><Check className="w-3.5 h-3.5" /></button>
+            <button onClick={() => run(saveRename)} disabled={busy} className={ui.btnPrimary}><Check className="w-3.5 h-3.5" /></button>
             <button onClick={() => setRenaming(null)} className={ui.btnSecondary}><X className="w-3.5 h-3.5" /></button>
           </div>
         ) : (
@@ -427,7 +429,7 @@ export default function CategoryDetail(): JSX.Element {
             <input className={ui.input} type="number" value={editingLimit.value} autoFocus
               placeholder={`${isIncome ? 'Goal' : 'Budget'} for ${format(currentMonth, 'MMMM')}`}
               onChange={e => setEditingLimit({ ...editingLimit, value: e.target.value })} />
-            <button onClick={saveLimit} className={ui.btnPrimary}>Set</button>
+            <button onClick={() => run(saveLimit)} disabled={busy} className={ui.btnPrimary}>{busy ? 'Saving...' : 'Set'}</button>
             <button onClick={() => setEditingLimit(null)} className={ui.btnSecondary}>Cancel</button>
           </div>
         )}
@@ -438,7 +440,7 @@ export default function CategoryDetail(): JSX.Element {
               onChange={e => setSubForm({ ...subForm, name: e.target.value })} autoFocus />
             <input className={`${ui.input} !w-28`} type="number" placeholder={`${currencySymbol()} amount`} value={subForm.amount}
               onChange={e => setSubForm({ ...subForm, amount: e.target.value })} />
-            <button onClick={addSub} className={ui.btnPrimary}>Add</button>
+            <button onClick={() => run(addSub)} disabled={busy} className={ui.btnPrimary}>{busy ? 'Saving...' : 'Add'}</button>
           </div>
         )}
       </div>
@@ -463,7 +465,7 @@ export default function CategoryDetail(): JSX.Element {
                 {renaming?.id === sub.id ? (
                   <div className="flex gap-1.5">
                     <input className={ui.input} value={renaming.name} onChange={e => setRenaming({ ...renaming, name: e.target.value })} autoFocus />
-                    <button onClick={saveRename} className={ui.btnPrimary}><Check className="w-3 h-3" /></button>
+                    <button onClick={() => run(saveRename)} disabled={busy} className={ui.btnPrimary}><Check className="w-3 h-3" /></button>
                     <button onClick={() => setRenaming(null)} className={ui.btnSecondary}><X className="w-3 h-3" /></button>
                   </div>
                 ) : (
@@ -510,7 +512,7 @@ export default function CategoryDetail(): JSX.Element {
                 <input className={ui.input} type="number" value={editingLimit.value} autoFocus
                   placeholder={`Amount for ${format(currentMonth, 'MMMM')}`}
                   onChange={e => setEditingLimit({ ...editingLimit, value: e.target.value })} />
-                <button onClick={saveLimit} className={ui.btnPrimary}>Set</button>
+                <button onClick={() => run(saveLimit)} disabled={busy} className={ui.btnPrimary}>{busy ? 'Saving...' : 'Set'}</button>
                 <button onClick={() => setEditingLimit(null)} className={ui.btnSecondary}>Cancel</button>
               </div>
             )}
