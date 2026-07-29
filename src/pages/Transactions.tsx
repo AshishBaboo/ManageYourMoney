@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Search, ArrowUpRight, ArrowDownLeft, Plus, X, Trash2 } from 'lucide-react'
+import { Search, ArrowUpRight, ArrowDownLeft, Plus, X, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { format, addMonths, subMonths } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { formatCurrency, currencySymbol } from '../lib/currency'
 import { ui } from '../lib/ui'
@@ -7,7 +8,7 @@ import { Toast, useNotify } from '../components/Toast'
 import AutocompleteInput from '../components/AutocompleteInput'
 
 interface Account { id: string; name: string; balance: number }
-interface Category { id: string; name: string; type: string; icon: string | null }
+interface Category { id: string; name: string; type: string; icon: string | null; parent_id?: string | null }
 interface Tx {
   id: string
   description: string
@@ -34,9 +35,12 @@ export default function Transactions(): JSX.Element {
     accountId: '',
     date: new Date().toISOString().slice(0, 10),
   })
+  // Month-scoped, always opens on the current month
+  const [currentMonth, setCurrentMonth] = useState(new Date())
+  const monthStr = format(currentMonth, 'yyyy-MM')
   const { notice, notify } = useNotify()
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [monthStr])
 
   const load = async () => {
     try {
@@ -44,8 +48,10 @@ export default function Transactions(): JSX.Element {
       if (!user) return
       const [acc, cat, tx] = await Promise.all([
         supabase.from('accounts').select('id,name,balance').eq('user_id', user.id).order('created_at'),
-        supabase.from('categories').select('id,name,type,icon').eq('user_id', user.id).order('name'),
-        supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false }).limit(200),
+        supabase.from('categories').select('*').eq('user_id', user.id).order('name'),
+        supabase.from('transactions').select('*').eq('user_id', user.id)
+          .gte('date', `${monthStr}-01`).lte('date', `${monthStr}-31`)
+          .order('date', { ascending: false }),
       ])
       if (acc.error) throw acc.error
       setAccounts((acc.data || []).map(a => ({ ...a, balance: Number(a.balance) })))
@@ -169,6 +175,17 @@ export default function Transactions(): JSX.Element {
         </button>
       </div>
 
+      {/* Month selector — always opens on the current month */}
+      <div className={`${ui.card} !py-2 flex items-center justify-between`}>
+        <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} aria-label="Previous month" className={ui.iconBtn}>
+          <ChevronLeft className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+        </button>
+        <h2 className={ui.h2}>{format(currentMonth, 'MMMM yyyy')}</h2>
+        <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} aria-label="Next month" className={ui.iconBtn}>
+          <ChevronRight className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+        </button>
+      </div>
+
       {/* Summary strip */}
       <div className="grid grid-cols-3 gap-2">
         <div className={ui.card}>
@@ -217,7 +234,17 @@ export default function Transactions(): JSX.Element {
                   <label className={ui.label}>Category</label>
                   <select className={ui.select} value={form.categoryId} onChange={e => setForm({ ...form, categoryId: e.target.value })}>
                     <option value="">None</option>
-                    {formCategories.map(c => <option key={c.id} value={c.id}>{c.icon ? `${c.icon} ` : ''}{c.name}</option>)}
+                    {formCategories.filter(c => !c.parent_id).map(c => {
+                      const subs = formCategories.filter(s => s.parent_id === c.id)
+                      return subs.length > 0 ? (
+                        <optgroup key={c.id} label={c.name}>
+                          <option value={c.id}>{c.name} (general)</option>
+                          {subs.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </optgroup>
+                      ) : (
+                        <option key={c.id} value={c.id}>{c.icon ? `${c.icon} ` : ''}{c.name}</option>
+                      )
+                    })}
                   </select>
                 </div>
                 <div className="col-span-2 md:col-span-1">
