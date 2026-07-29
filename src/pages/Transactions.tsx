@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Search, ArrowUpRight, ArrowDownLeft, Plus, X, Trash2, ChevronLeft, ChevronRight, Pencil, Check } from 'lucide-react'
+import { Search, ArrowUpRight, ArrowDownLeft, ArrowRightLeft, Plus, X, Trash2, ChevronLeft, ChevronRight, Pencil, Check } from 'lucide-react'
 import { format, addMonths, subMonths } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { formatCurrency, currencySymbol } from '../lib/currency'
@@ -9,6 +9,7 @@ import { Toast, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
 import AutocompleteInput from '../components/AutocompleteInput'
 import Select from '../components/Select'
+import { useConfirm } from '../components/ConfirmDialog'
 import { insertTransaction, updateTransaction, occurredAtFor, formatTxDate, sortTx } from '../lib/tx'
 import { defaultAccountId } from '../lib/userData'
 
@@ -18,7 +19,7 @@ interface Tx {
   id: string
   description: string
   amount: number
-  type: 'income' | 'expense'
+  type: 'income' | 'expense' | 'transfer'
   date: string
   account_id: string | null
   category_id: string | null
@@ -47,6 +48,7 @@ export default function Transactions(): JSX.Element {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const monthStr = format(currentMonth, 'yyyy-MM')
   const { notice, notify } = useNotify()
+  const { confirm, confirmDialog } = useConfirm()
 
   useEffect(() => { load() }, [monthStr])
 
@@ -91,7 +93,7 @@ export default function Transactions(): JSX.Element {
       setForm(f => ({
         ...f,
         description: value,
-        type: prev.type,
+        type: prev.type === 'transfer' ? f.type : prev.type,
         categoryId: prev.category_id || f.categoryId,
         accountId: prev.account_id || f.accountId,
       }))
@@ -168,15 +170,17 @@ export default function Transactions(): JSX.Element {
   }
 
   const deleteTransaction = async (tx: Tx) => {
+    if (!(await confirm(`Delete "${tx.description}" (${formatCurrency(Math.abs(tx.amount))})? The account balance will be adjusted back.`))) return
     try {
       const { error, count } = await supabase.from('transactions').delete({ count: 'exact' }).eq('id', tx.id)
       if (error) throw error
       if (!count) throw new Error('Delete blocked — run supabase-setup.sql')
 
-      // revert account balance
+      // revert account balance (transfer amounts are signed; income adds; expense subtracts)
       const acc = tx.account_id ? accById[tx.account_id] : null
       if (acc) {
-        const newBalance = acc.balance + (tx.type === 'income' ? -tx.amount : tx.amount)
+        const effect = tx.type === 'transfer' ? tx.amount : tx.type === 'income' ? tx.amount : -tx.amount
+        const newBalance = acc.balance - effect
         await supabase.from('accounts').update({ balance: newBalance }).eq('id', acc.id)
         setAccounts(accounts.map(a => a.id === acc.id ? { ...a, balance: newBalance } : a))
       }
@@ -206,6 +210,7 @@ export default function Transactions(): JSX.Element {
   return (
     <div className={ui.page}>
       <Toast notice={notice} />
+      {confirmDialog}
 
       <div className="flex items-center justify-between">
         <div>
@@ -391,11 +396,14 @@ export default function Transactions(): JSX.Element {
               return (
                 <div key={tx.id} className={ui.row}>
                   <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 mr-2 ${
-                    tx.type === 'income' ? 'bg-green-50 dark:bg-green-900/40' : 'bg-red-50 dark:bg-red-900/40'
+                    tx.type === 'transfer' ? 'bg-blue-50 dark:bg-blue-900/40'
+                    : tx.type === 'income' ? 'bg-green-50 dark:bg-green-900/40' : 'bg-red-50 dark:bg-red-900/40'
                   }`}>
-                    {tx.type === 'income'
-                      ? <ArrowDownLeft className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
-                      : <ArrowUpRight className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />}
+                    {tx.type === 'transfer'
+                      ? <ArrowRightLeft className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      : tx.type === 'income'
+                        ? <ArrowDownLeft className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+                        : <ArrowUpRight className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className={`${ui.strong} truncate`}>{tx.description}</p>
@@ -406,9 +414,12 @@ export default function Transactions(): JSX.Element {
                     </p>
                   </div>
                   <p className={`text-xs font-semibold whitespace-nowrap mx-1.5 ${
-                    tx.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                    tx.type === 'transfer' ? 'text-blue-600 dark:text-blue-400'
+                    : tx.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                   }`}>
-                    {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
+                    {tx.type === 'transfer'
+                      ? `${tx.amount >= 0 ? '+' : '-'}${formatCurrency(Math.abs(tx.amount))}`
+                      : `${tx.type === 'income' ? '+' : '-'}${formatCurrency(tx.amount)}`}
                   </p>
                   <button
                     onClick={() => setEditingTx({ id: tx.id, description: tx.description, amount: String(tx.amount), date: tx.date })}

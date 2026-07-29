@@ -8,6 +8,7 @@ import { ui } from '../lib/ui'
 import { Toast, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
 import Select from '../components/Select'
+import { useConfirm } from '../components/ConfirmDialog'
 
 interface Account { id: string; name: string; type: string; balance: number }
 interface Tx { id: string; description: string; amount: number; type: string; date: string; account_id: string | null }
@@ -25,6 +26,7 @@ export default function Dashboard(): JSX.Element {
   const [newAccountType, setNewAccountType] = useState('savings')
   const [loading, setLoading] = useState(true)
   const { notice, notify } = useNotify()
+  const { confirm, confirmDialog } = useConfirm()
 
   const monthStr = format(new Date(), 'yyyy-MM')
 
@@ -77,6 +79,8 @@ export default function Dashboard(): JSX.Element {
   }
 
   const deleteAccount = async (id: string) => {
+    const acc = accounts.find(a => a.id === id)
+    if (!(await confirm(`Delete account "${acc?.name}"?`))) return
     try {
       const { error, count } = await supabase.from('accounts').delete({ count: 'exact' }).eq('id', id)
       if (error) throw error
@@ -89,6 +93,8 @@ export default function Dashboard(): JSX.Element {
   }
 
   const deleteTransaction = async (id: string) => {
+    const tx = transactions.find(t => t.id === id)
+    if (!(await confirm(`Delete "${tx?.description}"?`))) return
     try {
       const { error, count } = await supabase.from('transactions').delete({ count: 'exact' }).eq('id', id)
       if (error) throw error
@@ -123,6 +129,7 @@ export default function Dashboard(): JSX.Element {
   return (
     <div className={ui.page}>
       <Toast notice={notice} />
+      {confirmDialog}
 
       {/* Fresh user: point them at the budget — the heart of the app */}
       {accounts.length === 0 && transactions.length === 0 && budgets.length === 0 && (

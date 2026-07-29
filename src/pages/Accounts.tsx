@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Plus, Send, Trash2, X, Wallet, PiggyBank, CreditCard, Banknote, Pencil, Check, Star } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { formatCurrency } from '../lib/currency'
@@ -6,6 +7,7 @@ import { ui } from '../lib/ui'
 import { Toast, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
 import Select from '../components/Select'
+import { useConfirm } from '../components/ConfirmDialog'
 
 const TYPE_OPTIONS = [
   { value: 'savings', label: 'Savings' },
@@ -38,6 +40,8 @@ export default function Accounts(): JSX.Element {
   const [transfer, setTransfer] = useState({ from: '', to: '', amount: '' })
   const [editing, setEditing] = useState<{ id: string; name: string; type: string; balance: string } | null>(null)
   const { notice, notify } = useNotify()
+  const { confirm, confirmDialog } = useConfirm()
+  const navigate = useNavigate()
 
   const setFavorite = async (id: string) => {
     try {
@@ -121,6 +125,8 @@ export default function Accounts(): JSX.Element {
   }
 
   const deleteAccount = async (id: string) => {
+    const acc = accounts.find(a => a.id === id)
+    if (!(await confirm(`Delete account "${acc?.name}"? Its transactions keep existing but lose the account link.`))) return
     try {
       const { error, count } = await supabase.from('accounts').delete({ count: 'exact' }).eq('id', id)
       if (error) throw error
@@ -140,17 +146,35 @@ export default function Accounts(): JSX.Element {
     if (!amount || amount <= 0) return notify('Enter a valid amount', false)
     if (from.balance < amount) return notify('Insufficient balance', false)
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
       const { error: e1 } = await supabase.from('accounts').update({ balance: from.balance - amount }).eq('id', from.id)
       if (e1) throw e1
       const { error: e2 } = await supabase.from('accounts').update({ balance: to.balance + amount }).eq('id', to.id)
       if (e2) throw e2
+
+      // record both sides as transfer transactions (outgoing negative, incoming positive)
+      const today = new Date().toISOString().slice(0, 10)
+      const { error: txErr } = await supabase.from('transactions').insert([
+        { user_id: user.id, account_id: from.id, description: `Transfer to ${to.name}`, amount: -amount, type: 'transfer', date: today, occurred_at: new Date().toISOString() },
+        { user_id: user.id, account_id: to.id, description: `Transfer from ${from.name}`, amount, type: 'transfer', date: today, occurred_at: new Date().toISOString() },
+      ])
+      if (txErr && /type_check/i.test(txErr.message)) {
+        notify('Transfer done — run supabase-migration-4 to also record transfers as transactions', false)
+      } else if (txErr && /occurred_at/i.test(txErr.message)) {
+        await supabase.from('transactions').insert([
+          { user_id: user.id, account_id: from.id, description: `Transfer to ${to.name}`, amount: -amount, type: 'transfer', date: today },
+          { user_id: user.id, account_id: to.id, description: `Transfer from ${from.name}`, amount, type: 'transfer', date: today },
+        ])
+      }
+
       setAccounts(accounts.map(a =>
         a.id === from.id ? { ...a, balance: a.balance - amount } :
         a.id === to.id ? { ...a, balance: a.balance + amount } : a
       ))
       setTransfer({ from: '', to: '', amount: '' })
       setShowTransfer(false)
-      notify(`Transferred ${formatCurrency(amount)}`)
+      notify(`Transferred ${formatCurrency(amount)} — recorded in both accounts`)
     } catch (e: any) {
       notify(e.message || 'Transfer failed', false)
     }
@@ -165,6 +189,7 @@ export default function Accounts(): JSX.Element {
   return (
     <div className={ui.page}>
       <Toast notice={notice} />
+      {confirmDialog}
 
       <div className="flex items-center justify-between">
         <div>
@@ -291,15 +316,19 @@ export default function Accounts(): JSX.Element {
               }
               return (
                 <div key={account.id} className={ui.row}>
-                  <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                  <button
+                    onClick={() => navigate(`/accounts/${account.id}`)}
+                    className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
+                    aria-label={`Open ${account.name}`}
+                  >
                     <div className="w-8 h-8 rounded-md bg-blue-50 dark:bg-blue-900/40 flex items-center justify-center shrink-0">
                       <Icon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div className="min-w-0">
                       <p className={`${ui.strong} truncate`}>{account.name}</p>
-                      <p className={ui.sub}>{meta.label}</p>
+                      <p className={ui.sub}>{meta.label} • tap for history</p>
                     </div>
-                  </div>
+                  </button>
                   <p className={`${ui.strong} mr-2 whitespace-nowrap`}>{formatCurrency(account.balance)}</p>
                   <button
                     onClick={() => setFavorite(account.id)}

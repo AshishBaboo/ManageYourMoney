@@ -9,6 +9,7 @@ import Sidebar from './components/Sidebar'
 import MobileNav from './components/MobileNav'
 import Dashboard from './pages/Dashboard'
 import Accounts from './pages/Accounts'
+import AccountDetail from './pages/AccountDetail'
 import Transactions from './pages/Transactions'
 import Goals from './pages/Goals'
 import Budget from './pages/Budget'
@@ -91,6 +92,7 @@ export default function App() {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/accounts" element={<Accounts />} />
+              <Route path="/accounts/:id" element={<AccountDetail />} />
               <Route path="/transactions" element={<Transactions />} />
               <Route path="/budget" element={<Budget />} />
               <Route path="/budget/c/:id" element={<CategoryDetail />} />

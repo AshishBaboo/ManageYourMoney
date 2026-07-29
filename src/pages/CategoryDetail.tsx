@@ -11,6 +11,7 @@ import { Toast, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
 import AutocompleteInput from '../components/AutocompleteInput'
 import Select from '../components/Select'
+import { useConfirm } from '../components/ConfirmDialog'
 import { insertTransaction, updateTransaction, occurredAtFor, formatTxDate, sortTx } from '../lib/tx'
 import { saveOrder, bySortOrder, defaultAccountId } from '../lib/userData'
 
@@ -37,6 +38,7 @@ export default function CategoryDetail(): JSX.Element {
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const { notice, notify } = useNotify()
+  const { confirm, confirmDialog } = useConfirm()
 
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -166,6 +168,8 @@ export default function CategoryDetail(): JSX.Element {
   }
 
   const deleteSub = async (subId: string) => {
+    const sub = subs.find(s => s.id === subId)
+    if (!(await confirm(`Delete subcategory "${sub?.name}"? Removed from all months; its transactions stay.`))) return
     const { error, count } = await supabase.from('categories').delete({ count: 'exact' }).eq('id', subId)
     if (error || !count) return notify(error?.message || 'Delete failed', false)
     setSubs(subs.filter(s => s.id !== subId))
@@ -259,6 +263,7 @@ export default function CategoryDetail(): JSX.Element {
   }
 
   const deleteTx = async (tx: Tx) => {
+    if (!(await confirm(`Delete "${tx.description}" (${formatCurrency(tx.amount)})? The account balance will be adjusted back.`))) return
     const { error, count } = await supabase.from('transactions').delete({ count: 'exact' }).eq('id', tx.id)
     if (error || !count) return notify(error?.message || 'Delete failed', false)
     if (tx.account_id) {
@@ -341,6 +346,7 @@ export default function CategoryDetail(): JSX.Element {
   return (
     <div className={ui.page}>
       <Toast notice={notice} />
+      {confirmDialog}
 
       {/* Header with back */}
       <div className="flex items-center gap-2">

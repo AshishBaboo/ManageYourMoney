@@ -11,6 +11,7 @@ import { Toast, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
 import AutocompleteInput from '../components/AutocompleteInput'
 import Select from '../components/Select'
+import { useConfirm } from '../components/ConfirmDialog'
 import { insertTransaction, occurredAtFor } from '../lib/tx'
 import { saveOrder, bySortOrder, defaultAccountId } from '../lib/userData'
 
@@ -45,6 +46,7 @@ export default function Budget(): JSX.Element {
   const [hasAnyTx, setHasAnyTx] = useState(true)
   const [loading, setLoading] = useState(true)
   const { notice, notify } = useNotify()
+  const { confirm, confirmDialog } = useConfirm()
 
   const [showAddCat, setShowAddCat] = useState(false)
   const [catForm, setCatForm] = useState({ name: '', type: 'expense' as 'income' | 'expense', amount: '' })
@@ -196,6 +198,9 @@ export default function Budget(): JSX.Element {
   }
 
   const deleteCategory = async (id: string) => {
+    const cat = categories.find(c => c.id === id)
+    const kids = categories.filter(c => c.parent_id === id).length
+    if (!(await confirm(`Delete "${cat?.name}"${kids ? ` and its ${kids} subcategor${kids === 1 ? 'y' : 'ies'}` : ''}? This removes it from ALL months. Transactions stay but lose the category.`))) return
     try {
       const { error, count } = await supabase.from('categories').delete({ count: 'exact' }).eq('id', id)
       if (error) throw error
@@ -616,6 +621,7 @@ export default function Budget(): JSX.Element {
   return (
     <div className={ui.page}>
       <Toast notice={notice} />
+      {confirmDialog}
 
       {/* Month header — tap the month name to see all budget months */}
       <div className={`${ui.card} !py-2 relative`}>

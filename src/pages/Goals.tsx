@@ -5,6 +5,7 @@ import { formatCurrency, currencySymbol } from '../lib/currency'
 import { ui } from '../lib/ui'
 import { Toast, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
+import { useConfirm } from '../components/ConfirmDialog'
 
 interface Goal {
   id: string
@@ -29,6 +30,7 @@ export default function Goals(): JSX.Element {
   const [addingFunds, setAddingFunds] = useState<{ goalId: string; value: string } | null>(null)
   const [editing, setEditing] = useState<{ id: string; name: string; target: string; deadline: string } | null>(null)
   const { notice, notify } = useNotify()
+  const { confirm, confirmDialog } = useConfirm()
 
   const saveEdit = async () => {
     if (!editing) return
@@ -105,6 +107,8 @@ export default function Goals(): JSX.Element {
   }
 
   const deleteGoal = async (id: string) => {
+    const g = goals.find(x => x.id === id)
+    if (!(await confirm(`Delete goal "${g?.name}"? Progress of ${formatCurrency(g?.current_amount || 0)} will be lost.`))) return
     try {
       const { error, count } = await supabase.from('savings_goals').delete({ count: 'exact' }).eq('id', id)
       if (error) throw error
@@ -143,6 +147,7 @@ export default function Goals(): JSX.Element {
   return (
     <div className={ui.page}>
       <Toast notice={notice} />
+      {confirmDialog}
 
       <div className="flex items-center justify-between">
         <div>
