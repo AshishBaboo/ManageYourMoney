@@ -1,54 +1,145 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
+import { supabase } from '../lib/supabase'
 
 export default function Dashboard(): JSX.Element {
-  const [accounts, setAccounts] = useState([
-    { id: 1, name: 'Checking', balance: 2500, type: 'Bank' },
-    { id: 2, name: 'Savings', balance: 15000, type: 'Bank' }
-  ])
-
-  const [transactions, setTransactions] = useState([
-    { id: 1, date: '2026-07-28', description: 'Grocery Store', amount: -120, category: 'Food' },
-    { id: 2, date: '2026-07-27', description: 'Salary', amount: 5000, category: 'Income' },
-    { id: 3, date: '2026-07-26', description: 'Fuel', amount: -50, category: 'Transport' }
-  ])
-
-  const [budgets] = useState([
-    { id: 1, category: 'Food', limit: 500, spent: 320, month: '2026-07' },
-    { id: 2, category: 'Transport', limit: 300, spent: 180, month: '2026-07' },
-    { id: 3, category: 'Entertainment', limit: 200, spent: 75, month: '2026-07' }
-  ])
-
+  const [accounts, setAccounts] = useState<any[]>([])
+  const [transactions, setTransactions] = useState<any[]>([])
+  const [budgets, setBudgets] = useState<any[]>([])
   const [newAccountName, setNewAccountName] = useState('')
   const [newAccountBalance, setNewAccountBalance] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [notification, setNotification] = useState('')
 
-  const totalBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0)
-  const totalSpent = transactions.filter(t => t.amount < 0).reduce((sum, t) => sum + Math.abs(t.amount), 0)
-  const totalIncome = transactions.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0)
+  useEffect(() => {
+    loadUserData()
+  }, [])
 
-  const addAccount = () => {
-    if (newAccountName && newAccountBalance) {
-      setAccounts([...accounts, {
-        id: Date.now(),
-        name: newAccountName,
-        balance: parseFloat(newAccountBalance),
-        type: 'Bank'
-      }])
-      setNewAccountName('')
-      setNewAccountBalance('')
+  const loadUserData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setCurrentUser(user)
+        // Load accounts
+        const { data: accData } = await supabase
+          .from('accounts')
+          .select('*')
+          .eq('user_id', user.id)
+        setAccounts(accData || [])
+
+        // Load transactions
+        const { data: txData } = await supabase
+          .from('transactions')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('date', { ascending: false })
+        setTransactions(txData || [])
+
+        // Load budgets
+        const { data: budData } = await supabase
+          .from('budgets')
+          .select('*')
+          .eq('user_id', user.id)
+        setBudgets(budData || [])
+      }
+    } catch (error) {
+      console.error('Error loading data:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
-  const deleteAccount = (id: number) => {
-    setAccounts(accounts.filter(a => a.id !== id))
+  const addAccount = async () => {
+    if (!newAccountName || !newAccountBalance) {
+      setNotification('Please fill in all fields')
+      setTimeout(() => setNotification(''), 3000)
+      return
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data, error } = await supabase
+        .from('accounts')
+        .insert({
+          user_id: user.id,
+          name: newAccountName,
+          balance: parseFloat(newAccountBalance),
+          type: 'Bank'
+        })
+        .select()
+
+      if (error) throw error
+      if (data) {
+        setAccounts([...accounts, data[0]])
+        setNewAccountName('')
+        setNewAccountBalance('')
+        setNotification('Account added successfully!')
+        setTimeout(() => setNotification(''), 3000)
+      }
+    } catch (error) {
+      console.error('Error adding account:', error)
+      setNotification('Failed to add account')
+      setTimeout(() => setNotification(''), 3000)
+    }
   }
 
-  const deleteTransaction = (id: number) => {
-    setTransactions(transactions.filter(t => t.id !== id))
+  const deleteAccount = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('accounts')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+      setAccounts(accounts.filter(a => a.id !== id))
+      setNotification('Account deleted successfully!')
+      setTimeout(() => setNotification(''), 3000)
+    } catch (error) {
+      console.error('Error deleting account:', error)
+      setNotification('Failed to delete account')
+      setTimeout(() => setNotification(''), 3000)
+    }
   }
+
+  const deleteTransaction = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+      setTransactions(transactions.filter(t => t.id !== id))
+      setNotification('Transaction deleted!')
+      setTimeout(() => setNotification(''), 3000)
+    } catch (error) {
+      console.error('Error deleting transaction:', error)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="p-4 md:p-6 flex items-center justify-center min-h-screen">
+        <p className="text-gray-600">Loading your data...</p>
+      </div>
+    )
+  }
+
+  const totalBalance = accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0)
+  const totalSpent = transactions.filter(t => t.amount < 0).reduce((sum, t) => sum + Math.abs(t.amount), 0)
+  const totalIncome = transactions.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0)
 
   return (
     <div className="p-3 md:p-6 space-y-4 md:space-y-6 max-w-7xl mx-auto">
+      {notification && (
+        <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+          {notification}
+        </div>
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 md:p-6">
@@ -56,11 +147,11 @@ export default function Dashboard(): JSX.Element {
           <p className="text-2xl md:text-3xl font-bold text-blue-900">${totalBalance.toLocaleString()}</p>
         </div>
         <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 md:p-6">
-          <p className="text-xs md:text-sm text-gray-600 mb-1">Income (This Month)</p>
+          <p className="text-xs md:text-sm text-gray-600 mb-1">Income</p>
           <p className="text-2xl md:text-3xl font-bold text-green-900">${totalIncome.toLocaleString()}</p>
         </div>
         <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-4 md:p-6">
-          <p className="text-xs md:text-sm text-gray-600 mb-1">Spent (This Month)</p>
+          <p className="text-xs md:text-sm text-gray-600 mb-1">Spent</p>
           <p className="text-2xl md:text-3xl font-bold text-red-900">${totalSpent.toLocaleString()}</p>
         </div>
       </div>
@@ -75,21 +166,25 @@ export default function Dashboard(): JSX.Element {
         </div>
 
         <div className="space-y-2 mb-4">
-          {accounts.map(account => (
-            <div key={account.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-              <div className="flex-1">
-                <p className="text-sm md:text-base font-medium text-gray-900">{account.name}</p>
-                <p className="text-xs md:text-sm text-gray-600">{account.type}</p>
+          {accounts.length === 0 ? (
+            <p className="text-sm text-gray-600 py-4">No accounts yet. Add one below!</p>
+          ) : (
+            accounts.map(account => (
+              <div key={account.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                <div className="flex-1">
+                  <p className="text-sm md:text-base font-medium text-gray-900">{account.name}</p>
+                  <p className="text-xs md:text-sm text-gray-600">{account.type}</p>
+                </div>
+                <p className="text-sm md:text-base font-bold text-gray-900 mr-3">${(account.balance || 0).toLocaleString()}</p>
+                <button
+                  onClick={() => deleteAccount(account.id)}
+                  className="p-1.5 text-red-600 hover:bg-red-50 rounded transition"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
-              <p className="text-sm md:text-base font-bold text-gray-900 mr-3">${account.balance.toLocaleString()}</p>
-              <button
-                onClick={() => deleteAccount(account.id)}
-                className="p-1.5 text-red-600 hover:bg-red-50 rounded transition"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
+            ))
+          )}
         </div>
 
         <div className="flex gap-2">
@@ -118,23 +213,27 @@ export default function Dashboard(): JSX.Element {
 
       {/* Budget Overview */}
       <div className="bg-white rounded-lg border border-gray-200 p-4 md:p-6">
-        <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4">Monthly Budget (July 2026)</h2>
+        <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4">Monthly Budget</h2>
         <div className="space-y-3">
-          {budgets.map(budget => {
-            const percentage = (budget.spent / budget.limit) * 100
-            const color = percentage > 80 ? 'bg-red-500' : percentage > 50 ? 'bg-yellow-500' : 'bg-green-500'
-            return (
-              <div key={budget.id} className="space-y-1">
-                <div className="flex justify-between items-center">
-                  <p className="text-sm font-medium text-gray-900">{budget.category}</p>
-                  <p className="text-xs md:text-sm text-gray-600">${budget.spent} / ${budget.limit}</p>
+          {budgets.length === 0 ? (
+            <p className="text-sm text-gray-600 py-4">No budgets set yet</p>
+          ) : (
+            budgets.map(budget => {
+              const percentage = (budget.spent / budget.limit) * 100
+              const color = percentage > 80 ? 'bg-red-500' : percentage > 50 ? 'bg-yellow-500' : 'bg-green-500'
+              return (
+                <div key={budget.id} className="space-y-1">
+                  <div className="flex justify-between items-center">
+                    <p className="text-sm font-medium text-gray-900">{budget.category}</p>
+                    <p className="text-xs md:text-sm text-gray-600">${budget.spent} / ${budget.limit}</p>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className={`h-2 rounded-full ${color}`} style={{ width: `${Math.min(percentage, 100)}%` }}></div>
+                  </div>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className={`h-2 rounded-full ${color}`} style={{ width: `${Math.min(percentage, 100)}%` }}></div>
-                </div>
-              </div>
-            )
-          })}
+              )
+            })
+          )}
         </div>
       </div>
 
@@ -142,23 +241,27 @@ export default function Dashboard(): JSX.Element {
       <div className="bg-white rounded-lg border border-gray-200 p-4 md:p-6">
         <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4">Recent Transactions</h2>
         <div className="space-y-2">
-          {transactions.map(transaction => (
-            <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm md:text-base font-medium text-gray-900 truncate">{transaction.description}</p>
-                <p className="text-xs md:text-sm text-gray-600">{transaction.date} • {transaction.category}</p>
+          {transactions.length === 0 ? (
+            <p className="text-sm text-gray-600 py-4">No transactions yet</p>
+          ) : (
+            transactions.slice(0, 10).map(transaction => (
+              <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm md:text-base font-medium text-gray-900 truncate">{transaction.description}</p>
+                  <p className="text-xs md:text-sm text-gray-600">{transaction.date} • {transaction.category}</p>
+                </div>
+                <p className={`text-sm md:text-base font-bold ml-2 whitespace-nowrap ${transaction.amount > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {transaction.amount > 0 ? '+' : ''} ${Math.abs(transaction.amount).toLocaleString()}
+                </p>
+                <button
+                  onClick={() => deleteTransaction(transaction.id)}
+                  className="p-1.5 ml-2 text-red-600 hover:bg-red-50 rounded transition"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
-              <p className={`text-sm md:text-base font-bold ml-2 whitespace-nowrap ${transaction.amount > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {transaction.amount > 0 ? '+' : ''} ${Math.abs(transaction.amount).toLocaleString()}
-              </p>
-              <button
-                onClick={() => deleteTransaction(transaction.id)}
-                className="p-1.5 ml-2 text-red-600 hover:bg-red-50 rounded transition"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 
