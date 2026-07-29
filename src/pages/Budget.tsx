@@ -42,6 +42,7 @@ export default function Budget(): JSX.Element {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [budgetMonths, setBudgetMonths] = useState<string[]>([])
+  const [hasAnyTx, setHasAnyTx] = useState(true)
   const [loading, setLoading] = useState(true)
   const { notice, notify } = useNotify()
 
@@ -99,6 +100,7 @@ export default function Budget(): JSX.Element {
       setAccounts((acc.data || []).map(a => ({ ...a, balance: Number(a.balance) })))
       setSuggestions([...new Set((sug.data || []).map(s => s.description))])
       setBudgetMonths([...new Set((allBud.data || []).map(b => b.month))].sort().reverse())
+      setHasAnyTx((sug.data || []).length > 0)
     } catch (e: any) {
       notify(e.message || 'Failed to load budget', false)
     } finally {
@@ -284,7 +286,9 @@ export default function Budget(): JSX.Element {
     }
   }
 
-  const isFreshUser = categories.length === 0 && budgetMonths.length === 0 && monthTx.length === 0
+  // Truly fresh = never created a category, never had a budget in ANY month,
+  // and has no transaction history at all
+  const isFreshUser = categories.length === 0 && budgetMonths.length === 0 && !hasAnyTx
 
   // ----- delete this month's budget (rows only — categories & transactions stay) -----
   const [confirmingDelete, setConfirmingDelete] = useState(false)
