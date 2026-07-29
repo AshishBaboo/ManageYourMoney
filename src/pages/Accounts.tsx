@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react'
-import { Plus, Send, Trash2, X, Wallet, PiggyBank, CreditCard, Banknote } from 'lucide-react'
+import { Plus, Send, Trash2, X, Wallet, PiggyBank, CreditCard, Banknote, Pencil, Check, Star } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { formatCurrency } from '../lib/currency'
 import { ui } from '../lib/ui'
 import { Toast, useNotify } from '../components/Toast'
+import Loader from '../components/Loader'
 
 interface Account {
   id: string
   name: string
   type: string
   balance: number
+  is_default?: boolean | null
 }
 
 const TYPE_META: Record<string, { label: string; icon: typeof Wallet }> = {
@@ -26,7 +28,43 @@ export default function Accounts(): JSX.Element {
   const [showTransfer, setShowTransfer] = useState(false)
   const [form, setForm] = useState({ name: '', type: 'savings', balance: '' })
   const [transfer, setTransfer] = useState({ from: '', to: '', amount: '' })
+  const [editing, setEditing] = useState<{ id: string; name: string; type: string; balance: string } | null>(null)
   const { notice, notify } = useNotify()
+
+  const setFavorite = async (id: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { error: e1 } = await supabase.from('accounts').update({ is_default: false }).eq('user_id', user.id)
+      if (e1) throw e1
+      const { error: e2 } = await supabase.from('accounts').update({ is_default: true }).eq('id', id)
+      if (e2) throw e2
+      setAccounts(accounts.map(a => ({ ...a, is_default: a.id === id })))
+      notify('Favorite account saved — it will be pre-selected everywhere')
+    } catch (e: any) {
+      notify(/is_default/i.test(e.message || '') ? 'Run supabase-migration-3 first' : (e.message || 'Failed'), false)
+    }
+  }
+
+  const saveEdit = async () => {
+    if (!editing) return
+    if (!editing.name.trim()) return notify('Enter a name', false)
+    try {
+      const { error } = await supabase.from('accounts').update({
+        name: editing.name.trim(),
+        type: editing.type,
+        balance: parseFloat(editing.balance) || 0,
+      }).eq('id', editing.id)
+      if (error) throw error
+      setAccounts(accounts.map(a => a.id === editing.id
+        ? { ...a, name: editing.name.trim(), type: editing.type, balance: parseFloat(editing.balance) || 0 }
+        : a))
+      setEditing(null)
+      notify('Account updated')
+    } catch (e: any) {
+      notify(e.message || 'Failed to update', false)
+    }
+  }
 
   useEffect(() => {
     load()
@@ -113,7 +151,7 @@ export default function Accounts(): JSX.Element {
   const totalBalance = accounts.reduce((s, a) => s + a.balance, 0)
 
   if (loading) {
-    return <div className={ui.page}><p className={ui.empty}>Loading accounts...</p></div>
+    return <div className={ui.page}><Loader label="Loading accounts..." /></div>
   }
 
   return (
@@ -217,6 +255,28 @@ export default function Accounts(): JSX.Element {
             {accounts.map(account => {
               const meta = TYPE_META[account.type] || TYPE_META.savings
               const Icon = meta.icon
+              if (editing?.id === account.id) {
+                return (
+                  <div key={account.id} className="p-2 rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-900/20 space-y-1.5">
+                    <div className="flex gap-1.5">
+                      <input className={ui.input} value={editing.name} placeholder="Account name"
+                        onChange={e => setEditing({ ...editing, name: e.target.value })} autoFocus />
+                      <select className={`${ui.select} w-28`} value={editing.type}
+                        onChange={e => setEditing({ ...editing, type: e.target.value })}>
+                        {Object.entries(TYPE_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                      </select>
+                      <input className={`${ui.input} !w-28`} type="number" value={editing.balance} placeholder="Balance"
+                        onChange={e => setEditing({ ...editing, balance: e.target.value })} />
+                    </div>
+                    <div className="flex gap-1.5">
+                      <button onClick={saveEdit} className={ui.btnPrimary}>
+                        <span className="flex items-center gap-1"><Check className="w-3 h-3" /> Save</span>
+                      </button>
+                      <button onClick={() => setEditing(null)} className={ui.btnSecondary}>Cancel</button>
+                    </div>
+                  </div>
+                )
+              }
               return (
                 <div key={account.id} className={ui.row}>
                   <div className="flex items-center gap-2.5 flex-1 min-w-0">
@@ -229,6 +289,20 @@ export default function Accounts(): JSX.Element {
                     </div>
                   </div>
                   <p className={`${ui.strong} mr-2 whitespace-nowrap`}>{formatCurrency(account.balance)}</p>
+                  <button
+                    onClick={() => setFavorite(account.id)}
+                    aria-label={`Set ${account.name} as favorite`}
+                    title="Favorite — pre-selected in transaction forms"
+                    className={ui.iconBtn}
+                  >
+                    <Star className={`w-3.5 h-3.5 ${account.is_default ? 'text-amber-400 fill-amber-400' : 'text-gray-400'}`} />
+                  </button>
+                  <button
+                    onClick={() => setEditing({ id: account.id, name: account.name, type: account.type, balance: String(account.balance) })}
+                    aria-label={`Edit ${account.name}`} className={ui.iconBtn}
+                  >
+                    <Pencil className="w-3.5 h-3.5 text-gray-500" />
+                  </button>
                   <button onClick={() => deleteAccount(account.id)} aria-label={`Delete ${account.name}`} className={ui.iconBtnDanger}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>

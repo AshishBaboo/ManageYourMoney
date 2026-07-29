@@ -3,14 +3,17 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
 import { initTheme } from './lib/theme'
-import { ensureUserRow } from './lib/userData'
+import { ensureUserRow, syncPrefsFromDb } from './lib/userData'
 import Header from './components/Header'
 import Sidebar from './components/Sidebar'
+import MobileNav from './components/MobileNav'
 import Dashboard from './pages/Dashboard'
 import Accounts from './pages/Accounts'
 import Transactions from './pages/Transactions'
 import Goals from './pages/Goals'
 import Budget from './pages/Budget'
+import CategoryDetail from './pages/CategoryDetail'
+import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
 
@@ -27,6 +30,7 @@ export default function App() {
       if (session?.user) {
         setUser(session.user)
         ensureUserRow(session.user)
+        syncPrefsFromDb(session.user.id)
       } else {
         setUser(null)
       }
@@ -44,6 +48,7 @@ export default function App() {
       if (u) {
         setUser(u)
         ensureUserRow(u)
+        syncPrefsFromDb(u.id)
       }
     } catch (error) {
       console.error('Auth check failed:', error)
@@ -82,16 +87,19 @@ export default function App() {
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} onLogout={handleLogout} />
         <div className="flex-1 flex flex-col overflow-hidden">
           <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} onLogout={handleLogout} user={user} />
-          <main className="flex-1 overflow-auto">
+          <main className="flex-1 overflow-auto pb-16 md:pb-0">
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/accounts" element={<Accounts />} />
               <Route path="/transactions" element={<Transactions />} />
               <Route path="/budget" element={<Budget />} />
+              <Route path="/budget/c/:id" element={<CategoryDetail />} />
+              <Route path="/reports" element={<Reports />} />
               <Route path="/goals" element={<Goals />} />
               <Route path="/settings" element={<Settings />} />
             </Routes>
           </main>
+          <MobileNav />
         </div>
       </div>
     </Router>

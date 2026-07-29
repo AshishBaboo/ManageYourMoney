@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { formatCurrency } from '../lib/currency'
 import { ui } from '../lib/ui'
 import { Toast, useNotify } from '../components/Toast'
+import Loader from '../components/Loader'
 
 interface Account { id: string; name: string; type: string; balance: number }
 interface Tx { id: string; description: string; amount: number; type: string; date: string; account_id: string | null }
@@ -36,7 +37,7 @@ export default function Dashboard(): JSX.Element {
         supabase.from('accounts').select('*').eq('user_id', user.id).order('created_at'),
         supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false }).limit(8),
         supabase.from('budgets').select('*').eq('user_id', user.id).eq('month', monthStr),
-        supabase.from('categories').select('id,name,icon').eq('user_id', user.id),
+        supabase.from('categories').select('*').eq('user_id', user.id),
         supabase.from('transactions').select('id,description,amount,type,date,account_id,category_id')
           .eq('user_id', user.id).gte('date', `${monthStr}-01`).lte('date', `${monthStr}-31`),
       ])
@@ -99,7 +100,7 @@ export default function Dashboard(): JSX.Element {
   }
 
   if (loading) {
-    return <div className={ui.page}><p className={ui.empty}>Loading your data...</p></div>
+    return <div className={ui.page}><Loader label="Loading your data..." /></div>
   }
 
   const totalBalance = accounts.reduce((s, a) => s + a.balance, 0)
@@ -107,11 +108,15 @@ export default function Dashboard(): JSX.Element {
   const monthSpent = monthTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
 
   const budgetRows = budgets.map(b => {
-    const cat = categories.find(c => c.id === b.category_id)
+    const cat = categories.find(c => c.id === b.category_id) as any
+    const isIncome = cat?.type === 'income'
+    const childIds = (categories as any[]).filter(c => c.parent_id === b.category_id).map(c => c.id)
     const spent = (monthTx as any[])
-      .filter(t => t.category_id === b.category_id && t.type === 'expense')
+      .filter(t =>
+        (t.category_id === b.category_id || childIds.includes(t.category_id)) &&
+        t.type === (isIncome ? 'income' : 'expense'))
       .reduce((s, t) => s + t.amount, 0)
-    return { id: b.id, name: cat?.name || 'Category', icon: cat?.icon, spent, limit: b.limit_amount }
+    return { id: b.id, name: cat?.name || 'Category', icon: cat?.icon, spent, limit: b.limit_amount, isIncome }
   })
 
   return (
@@ -203,12 +208,14 @@ export default function Dashboard(): JSX.Element {
           ) : (
             budgetRows.map(b => {
               const pct = b.limit > 0 ? (b.spent / b.limit) * 100 : 0
-              const color = pct > 100 ? 'bg-red-500' : pct > 75 ? 'bg-yellow-500' : 'bg-green-500'
+              const color = b.isIncome ? 'bg-violet-500' : pct > 100 ? 'bg-red-500' : pct > 75 ? 'bg-yellow-500' : 'bg-green-500'
               return (
                 <div key={b.id}>
                   <div className="flex justify-between items-center mb-0.5">
                     <p className={ui.strong}>{b.icon ? `${b.icon} ` : ''}{b.name}</p>
-                    <p className={ui.sub}>{formatCurrency(b.spent)} / {formatCurrency(b.limit)}</p>
+                    <p className={ui.sub}>
+                      {formatCurrency(b.spent)} / {formatCurrency(b.limit)} {b.isIncome ? 'earned' : ''}
+                    </p>
                   </div>
                   <div className={ui.progressTrack}>
                     <div className={`h-1.5 rounded-full ${color}`} style={{ width: `${Math.min(pct, 100)}%` }} />

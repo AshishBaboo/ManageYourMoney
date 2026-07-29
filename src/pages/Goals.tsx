@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, X, PlusCircle } from 'lucide-react'
+import { Plus, Trash2, X, PlusCircle, Pencil, Check } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { formatCurrency, currencySymbol } from '../lib/currency'
 import { ui } from '../lib/ui'
 import { Toast, useNotify } from '../components/Toast'
+import Loader from '../components/Loader'
 
 interface Goal {
   id: string
@@ -26,7 +27,29 @@ export default function Goals(): JSX.Element {
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ name: '', icon: '', target: '', deadline: '' })
   const [addingFunds, setAddingFunds] = useState<{ goalId: string; value: string } | null>(null)
+  const [editing, setEditing] = useState<{ id: string; name: string; target: string; deadline: string } | null>(null)
   const { notice, notify } = useNotify()
+
+  const saveEdit = async () => {
+    if (!editing) return
+    const target = parseFloat(editing.target)
+    if (!editing.name.trim()) return notify('Enter a name', false)
+    if (!target || target <= 0) return notify('Enter a valid target', false)
+    if (!editing.deadline) return notify('Pick a deadline', false)
+    try {
+      const { error } = await supabase.from('savings_goals').update({
+        name: editing.name.trim(), target_amount: target, deadline: editing.deadline,
+      }).eq('id', editing.id)
+      if (error) throw error
+      setGoals(goals.map(g => g.id === editing.id
+        ? { ...g, name: editing.name.trim(), target_amount: target, deadline: editing.deadline }
+        : g))
+      setEditing(null)
+      notify('Goal updated')
+    } catch (e: any) {
+      notify(e.message || 'Failed to update', false)
+    }
+  }
 
   useEffect(() => { load() }, [])
 
@@ -115,7 +138,7 @@ export default function Goals(): JSX.Element {
   const totalTarget = goals.reduce((s, g) => s + g.target_amount, 0)
   const totalProgress = totalTarget > 0 ? (totalSaved / totalTarget) * 100 : 0
 
-  if (loading) return <div className={ui.page}><p className={ui.empty}>Loading goals...</p></div>
+  if (loading) return <div className={ui.page}><Loader label="Loading goals..." /></div>
 
   return (
     <div className={ui.page}>
@@ -193,6 +216,24 @@ export default function Goals(): JSX.Element {
             const daysLeft = Math.ceil((new Date(goal.deadline).getTime() - Date.now()) / 86400000)
             return (
               <div key={goal.id} className={ui.card}>
+                {editing?.id === goal.id ? (
+                  <div className="space-y-1.5 mb-2">
+                    <input className={ui.input} value={editing.name} placeholder="Goal name"
+                      onChange={e => setEditing({ ...editing, name: e.target.value })} autoFocus />
+                    <div className="flex gap-1.5">
+                      <input className={ui.input} type="number" value={editing.target} placeholder="Target"
+                        onChange={e => setEditing({ ...editing, target: e.target.value })} />
+                      <input className={ui.input} type="date" value={editing.deadline}
+                        onChange={e => setEditing({ ...editing, deadline: e.target.value })} />
+                    </div>
+                    <div className="flex gap-1.5">
+                      <button onClick={saveEdit} className={ui.btnPrimary}>
+                        <span className="flex items-center gap-1"><Check className="w-3 h-3" /> Save</span>
+                      </button>
+                      <button onClick={() => setEditing(null)} className={ui.btnSecondary}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-xl">{goal.icon || '🎯'}</span>
@@ -201,10 +242,19 @@ export default function Goals(): JSX.Element {
                       <p className={ui.sub}>{daysLeft > 0 ? `${daysLeft} days left` : 'Deadline passed'}</p>
                     </div>
                   </div>
-                  <button onClick={() => deleteGoal(goal.id)} aria-label={`Delete ${goal.name}`} className={ui.iconBtnDanger}>
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex gap-0.5">
+                    <button
+                      onClick={() => setEditing({ id: goal.id, name: goal.name, target: String(goal.target_amount), deadline: goal.deadline })}
+                      aria-label={`Edit ${goal.name}`} className={ui.iconBtn}
+                    >
+                      <Pencil className="w-3.5 h-3.5 text-gray-500" />
+                    </button>
+                    <button onClick={() => deleteGoal(goal.id)} aria-label={`Delete ${goal.name}`} className={ui.iconBtnDanger}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
+                )}
 
                 <div className="flex items-center justify-between mb-1">
                   <p className={ui.sub}>{formatCurrency(goal.current_amount)} of {formatCurrency(goal.target_amount)}</p>

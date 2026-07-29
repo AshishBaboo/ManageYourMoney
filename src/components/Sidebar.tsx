@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Wallet, ArrowRightLeft, PieChart, Target, Settings, LogOut, X } from 'lucide-react'
+import { LayoutDashboard, Wallet, ArrowRightLeft, PieChart, Target, Settings, LogOut, X, BarChart3 } from 'lucide-react'
 
 interface SidebarProps {
   isOpen: boolean
@@ -12,6 +12,7 @@ const menuItems = [
   { label: 'Accounts', icon: Wallet, href: '/accounts' },
   { label: 'Transactions', icon: ArrowRightLeft, href: '/transactions' },
   { label: 'Budget', icon: PieChart, href: '/budget' },
+  { label: 'Insights', icon: BarChart3, href: '/reports' },
   { label: 'Goals', icon: Target, href: '/goals' },
   { label: 'Settings', icon: Settings, href: '/settings' }
 ]

@@ -4,7 +4,7 @@ import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { CURRENCIES, getCurrency, setCurrency } from '../lib/currency'
 import { getTheme, applyTheme, Theme } from '../lib/theme'
-import { displayName, initials } from '../lib/userData'
+import { displayName, initials, savePrefToDb } from '../lib/userData'
 import { ui } from '../lib/ui'
 import { Toast, useNotify } from '../components/Toast'
 
@@ -45,13 +45,15 @@ export default function Settings(): JSX.Element {
   const changeTheme = (t: Theme) => {
     applyTheme(t)
     setThemeState(t)
-    notify(`${t === 'dark' ? 'Dark' : 'Light'} theme applied`)
+    if (user) savePrefToDb(user.id, { theme: t })
+    notify(`${t === 'dark' ? 'Dark' : 'Light'} theme saved`)
   }
 
   const changeCurrency = (code: string) => {
     setCurrency(code)
     setCurrencyState(code)
-    notify(`Currency set to ${code} (${CURRENCIES[code].symbol})`)
+    if (user) savePrefToDb(user.id, { currency: code })
+    notify(`Currency saved: ${code} (${CURRENCIES[code].symbol})`)
   }
 
   const changePassword = async () => {
