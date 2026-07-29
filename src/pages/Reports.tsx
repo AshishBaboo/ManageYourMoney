@@ -9,6 +9,7 @@ import { formatTxDate, sortTx } from '../lib/tx'
 
 interface Category { id: string; name: string; type: string; icon: string | null; parent_id: string | null; color: string | null }
 interface Tx { id: string; category_id: string | null; description: string; amount: number; type: string; date: string; occurred_at?: string | null }
+interface BudgetRow { category_id: string; month: string; limit_amount: number }
 
 type Preset = 'this_month' | 'last_month' | 'last_3' | 'this_year' | 'all' | 'custom'
 
@@ -29,6 +30,8 @@ export default function Reports(): JSX.Element {
   const [customTo, setCustomTo] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [categories, setCategories] = useState<Category[]>([])
   const [txs, setTxs] = useState<Tx[]>([])
+  const [budgetRows, setBudgetRows] = useState<BudgetRow[]>([])
+  const [showAllExpenses, setShowAllExpenses] = useState(false)
   const [loading, setLoading] = useState(true)
   const { notice, notify } = useNotify()
 
@@ -57,10 +60,19 @@ export default function Reports(): JSX.Element {
       let q = supabase.from('transactions').select('*').eq('user_id', user.id)
       if (range.from) q = q.gte('date', range.from)
       if (range.to) q = q.lte('date', range.to)
-      const [tx, cat] = await Promise.all([q, supabase.from('categories').select('*').eq('user_id', user.id)])
+      // when the range is a single month, also compare against that month's budget
+      const singleMonth = range.from && range.to && range.from.slice(0, 7) === range.to.slice(0, 7) ? range.from.slice(0, 7) : null
+      const [tx, cat, bud] = await Promise.all([
+        q,
+        supabase.from('categories').select('*').eq('user_id', user.id),
+        singleMonth
+          ? supabase.from('budgets').select('category_id,month,limit_amount').eq('user_id', user.id).eq('month', singleMonth)
+          : Promise.resolve({ data: [], error: null } as any),
+      ])
       if (tx.error) throw tx.error
       setTxs(sortTx((tx.data || []).map((t: any) => ({ ...t, amount: Number(t.amount) }))))
       setCategories(cat.data || [])
+      setBudgetRows(((bud.data || []) as any[]).map(b => ({ ...b, limit_amount: Number(b.limit_amount) })))
     } catch (e: any) {
       notify(e.message || 'Failed to load report', false)
     } finally {
@@ -96,7 +108,41 @@ export default function Reports(): JSX.Element {
 
   const expenseBreakdown = breakdown(expense)
   const incomeBreakdown = breakdown(income)
-  const topExpenses = [...expense].sort((a, b) => b.amount - a.amount).slice(0, 5)
+  const sortedExpenses = [...expense].sort((a, b) => b.amount - a.amount)
+  const topExpenses = showAllExpenses ? sortedExpenses : sortedExpenses.slice(0, 8)
+  const topIncome = [...income].sort((a, b) => b.amount - a.amount).slice(0, 5)
+
+  // subcategory-level breakdown (exact category, labelled "Parent · Sub")
+  const subBreakdown = useMemo(() => {
+    const map = new Map<string, { name: string; icon: string | null; total: number }>()
+    for (const t of expense) {
+      const c = t.category_id ? catById.get(t.category_id) : null
+      const parent = c?.parent_id ? catById.get(c.parent_id) : null
+      const name = c ? (parent ? `${parent.name} · ${c.name}` : c.name) : 'Uncategorised'
+      const key = c?.id || 'uncat'
+      const cur = map.get(key) || { name, icon: c?.icon || null, total: 0 }
+      cur.total += t.amount
+      map.set(key, cur)
+    }
+    return [...map.values()].sort((a, b) => b.total - a.total)
+  }, [expense, catById])
+
+  // budget vs actual (single-month ranges only)
+  const budgetVsActual = useMemo(() => {
+    if (!budgetRows.length) return []
+    return budgetRows.map(b => {
+      const cat = catById.get(b.category_id)
+      if (!cat) return null
+      const isIncome = (cat.parent_id ? catById.get(cat.parent_id)?.type : cat.type) === 'income'
+      if (isIncome) return null
+      const childIds = categories.filter(c => c.parent_id === b.category_id).map(c => c.id)
+      const spent = expense
+        .filter(t => t.category_id === b.category_id || childIds.includes(t.category_id || ''))
+        .reduce((s, t) => s + t.amount, 0)
+      return { name: cat.name, icon: cat.icon, limit: b.limit_amount, spent, diff: b.limit_amount - spent }
+    }).filter((x): x is NonNullable<typeof x> => x !== null && x.limit > 0)
+      .sort((a, b) => (a.diff) - (b.diff))
+  }, [budgetRows, catById, categories, expense])
 
   // month-by-month totals (when the range spans months)
   const monthly = useMemo(() => {
@@ -202,17 +248,63 @@ export default function Reports(): JSX.Element {
             </div>
           </div>
 
-          {/* Spending by category */}
+          {/* Budget vs actual (single month) */}
+          {budgetVsActual.length > 0 && (
+            <div className={ui.card}>
+              <h2 className={`${ui.h2} mb-2`}>Budget vs Actual</h2>
+              <div className="space-y-1.5">
+                {budgetVsActual.map((r, i) => (
+                  <div key={i} className={ui.row}>
+                    <p className={`${ui.strong} flex-1 truncate`}>{r.icon ? `${r.icon} ` : ''}{r.name}</p>
+                    <div className="text-right">
+                      <p className={ui.sub}>{formatCurrency(r.spent)} of {formatCurrency(r.limit)}</p>
+                      <p className={`text-[10px] font-semibold ${r.diff < 0 ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>
+                        {r.diff < 0 ? `${formatCurrency(-r.diff)} over` : `${formatCurrency(r.diff)} under`}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Spending by category — largest first */}
           <div className={ui.card}>
             <h2 className={`${ui.h2} mb-2`}>Spending by Category</h2>
             <BreakdownList rows={expenseBreakdown} total={totalExpense} color="expense" />
           </div>
+
+          {/* Spending by subcategory — largest first */}
+          {subBreakdown.length > expenseBreakdown.length && (
+            <div className={ui.card}>
+              <h2 className={`${ui.h2} mb-2`}>Spending by Subcategory</h2>
+              <BreakdownList rows={subBreakdown} total={totalExpense} color="expense" />
+            </div>
+          )}
 
           {/* Income by category */}
           <div className={ui.card}>
             <h2 className={`${ui.h2} mb-2`}>Income by Category</h2>
             <BreakdownList rows={incomeBreakdown} total={totalIncome} color="income" />
           </div>
+
+          {/* Top income entries */}
+          {topIncome.length > 0 && (
+            <div className={ui.card}>
+              <h2 className={`${ui.h2} mb-2`}>Largest Income Entries</h2>
+              <div className="space-y-1.5">
+                {topIncome.map(t => (
+                  <div key={t.id} className={ui.row}>
+                    <div className="flex-1 min-w-0">
+                      <p className={`${ui.strong} truncate`}>{t.description}</p>
+                      <p className={ui.sub}>{formatTxDate(t)}</p>
+                    </div>
+                    <p className="text-xs font-semibold text-green-600 dark:text-green-400">+{formatCurrency(t.amount)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Month by month */}
           {monthly.length > 1 && (
@@ -232,9 +324,9 @@ export default function Reports(): JSX.Element {
             </div>
           )}
 
-          {/* Biggest expenses */}
+          {/* All expenses, largest first */}
           <div className={ui.card}>
-            <h2 className={`${ui.h2} mb-2`}>Biggest Expenses</h2>
+            <h2 className={`${ui.h2} mb-2`}>Expenses — Largest First</h2>
             <div className="space-y-1.5">
               {topExpenses.length === 0 ? <p className={ui.empty}>No expenses in this period</p> : topExpenses.map(t => (
                 <div key={t.id} className={ui.row}>
@@ -245,6 +337,11 @@ export default function Reports(): JSX.Element {
                   <p className="text-xs font-semibold text-red-600 dark:text-red-400">-{formatCurrency(t.amount)}</p>
                 </div>
               ))}
+              {sortedExpenses.length > 8 && (
+                <button onClick={() => setShowAllExpenses(!showAllExpenses)} className="w-full text-center text-[11px] text-blue-600 dark:text-blue-400 hover:underline py-1">
+                  {showAllExpenses ? 'Show less' : `Show all ${sortedExpenses.length} expenses`}
+                </button>
+              )}
             </div>
           </div>
         </>
