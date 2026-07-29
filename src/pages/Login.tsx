@@ -86,17 +86,17 @@ export default function Login({ onLogin }: LoginProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
-        <div className="flex justify-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold">
-            iS
+        <div className="flex justify-center mb-6">
+          <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl flex items-center justify-center text-white text-xl font-bold">
+            MYM
           </div>
         </div>
 
-        <h1 className="text-2xl font-bold text-center text-gray-900 mb-2">
-          {isSignUp ? 'Create Account' : "Let's get something"}
+        <h1 className="text-2xl font-bold text-center text-gray-900 mb-1">
+          {isSignUp ? 'Create Account' : 'Manage Your Money'}
         </h1>
-        <p className="text-center text-gray-600 mb-8">
-          {isSignUp ? 'Join us today' : 'Good To See You Back'}
+        <p className="text-center text-gray-600 mb-6 text-sm">
+          {isSignUp ? 'Take control of your finances' : 'Track your spending smarter'}
         </p>
 
         <form onSubmit={isSignUp ? handleSignUp : handleSignIn} className="space-y-5">
@@ -171,10 +171,18 @@ export default function Login({ onLogin }: LoginProps) {
           </p>
         </div>
 
-        <div className="mt-6 pt-6 border-t border-gray-200 flex justify-center gap-4 text-xs text-gray-600">
-          <button className="hover:text-gray-900">Privacy Policy</button>
-          <span>•</span>
-          <button className="hover:text-gray-900">Terms and conditions</button>
+        <div className="mt-4 pt-4 border-t border-gray-200 text-center">
+          <p className="text-xs text-gray-500 mb-3">
+            Developed by{' '}
+            <a href="https://ashishbaboo.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+              Ashish Baboo
+            </a>
+          </p>
+          <div className="flex justify-center gap-4 text-xs text-gray-600">
+            <button className="hover:text-gray-900">Privacy Policy</button>
+            <span>•</span>
+            <button className="hover:text-gray-900">Terms and conditions</button>
+          </div>
         </div>
       </div>
     </div>
