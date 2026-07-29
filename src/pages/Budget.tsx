@@ -131,6 +131,26 @@ export default function Budget(): JSX.Element {
   // Only categories that are part of THIS month's budget (or have spend) appear
   const expenseTops = tops('expense').filter(inThisMonth)
   const incomeTops = tops('income').filter(inThisMonth)
+  // categories that exist but aren't part of this month — can be re-added
+  const dormantTops = [...tops('income'), ...tops('expense')].filter(c => !inThisMonth(c))
+
+  const addExistingToMonth = async (categoryId: string) => {
+    if (!categoryId) return
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data, error } = await supabase.from('budgets').insert({
+        user_id: user.id, category_id: categoryId, month: monthStr, limit_amount: 0,
+      }).select()
+      if (error) throw error
+      setBudgets(prev => [...prev, { ...data[0], limit_amount: Number(data[0].limit_amount) }])
+      setBudgetMonths(prev => [...new Set([monthStr, ...prev])].sort().reverse())
+      const cat = categories.find(c => c.id === categoryId)
+      notify(`${cat?.name || 'Category'} added to ${format(currentMonth, 'MMMM')} — set its amount with the pencil`)
+    } catch (e: any) {
+      notify(e.message || 'Failed to add', false)
+    }
+  }
   const totalBudgeted = expenseTops.reduce((s, c) => s + rolledLimit(c), 0)
   const totalSpent = expenseTops.reduce((s, c) => s + rolledAmount(c), 0)
   const incomeEarned = monthTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
@@ -208,6 +228,27 @@ export default function Budget(): JSX.Element {
       notify(`Amount set for ${format(currentMonth, 'MMMM')}`)
     } catch (e: any) {
       notify(e.message || 'Failed to save', false)
+    }
+  }
+
+  // ----- delete this month's budget (rows only — categories & transactions stay) -----
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+
+  const deleteMonthBudget = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { error, count } = await supabase.from('budgets')
+        .delete({ count: 'exact' })
+        .eq('user_id', user.id)
+        .eq('month', monthStr)
+      if (error) throw error
+      setBudgets([])
+      setBudgetMonths(prev => prev.filter(m => m !== monthStr))
+      setConfirmingDelete(false)
+      notify(`${format(currentMonth, 'MMMM yyyy')} budget deleted (${count} amounts removed)`)
+    } catch (e: any) {
+      notify(e.message || 'Failed to delete budget', false)
     }
   }
 
@@ -696,17 +737,61 @@ export default function Budget(): JSX.Element {
         </div>
       )}
 
-      {/* New category / clone */}
+      {/* New category / clone / delete month */}
       {monthHasBudget && (
         <div className="flex items-center justify-between">
           <h2 className={ui.h2}>Categories</h2>
           <div className="flex gap-1.5">
+            {budgets.length > 0 && (
+              <button
+                onClick={() => setConfirmingDelete(true)}
+                aria-label={`Delete ${format(currentMonth, 'MMMM')} budget`}
+                title="Delete this month's budget"
+                className={ui.btnDanger}
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            )}
             <button onClick={openClone} className={ui.btnSecondary}>
               <span className="flex items-center gap-1"><Copy className="w-3 h-3" /> Clone month</span>
             </button>
             <button onClick={() => setShowAddCat(!showAddCat)} className={ui.btnPrimary}>
               <span className="flex items-center gap-1"><Plus className="w-3 h-3" /> New Category</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Re-add an existing (dormant) category to this month */}
+      {dormantTops.length > 0 && (
+        <div className={`${ui.card} flex items-center gap-2 !py-2`}>
+          <p className={`${ui.sub} shrink-0`}>Add existing category:</p>
+          <Select
+            className="flex-1"
+            value=""
+            onChange={addExistingToMonth}
+            placeholder={`${dormantTops.length} not in ${format(currentMonth, 'MMMM')}`}
+            options={dormantTops.map(c => ({
+              value: c.id,
+              label: `${c.icon ? `${c.icon} ` : ''}${c.name}`,
+              group: c.type === 'income' ? 'Income' : 'Expenses',
+            }))}
+          />
+        </div>
+      )}
+
+      {/* Confirm month-budget deletion */}
+      {confirmingDelete && (
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-900 rounded-lg p-2.5">
+          <p className="text-xs text-red-800 dark:text-red-300 mb-2">
+            Delete the <span className="font-semibold">{format(currentMonth, 'MMMM yyyy')}</span> budget?
+            All budgeted amounts for this month are removed. Your categories and transactions are NOT deleted.
+          </p>
+          <div className="flex gap-1.5">
+            <button onClick={deleteMonthBudget} className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-md hover:bg-red-700 transition">
+              Yes, delete {format(currentMonth, 'MMMM')} budget
+            </button>
+            <button onClick={() => setConfirmingDelete(false)} className={ui.btnSecondary}>Cancel</button>
           </div>
         </div>
       )}
