@@ -4,7 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { mockCategories, mockBudgets, mockTransactions } from '../data'
 import { format, addMonths, subMonths } from 'date-fns'
 
-export default function Budget() {
+export default function Budget(): JSX.Element {
   const [currentMonth, setCurrentMonth] = useState(new Date(2024, 0, 1))
   const monthStr = format(currentMonth, 'yyyy-MM')
 

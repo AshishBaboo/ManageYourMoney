@@ -1,11 +1,7 @@
 import { useState } from 'react'
-import { Plus, Trash2, Edit2, TrendingUp } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 
-interface DashboardProps {
-  userId?: string | null
-}
-
-export default function Dashboard({ userId }: DashboardProps) {
+export default function Dashboard(): JSX.Element {
   const [accounts, setAccounts] = useState([
     { id: 1, name: 'Checking', balance: 2500, type: 'Bank' },
     { id: 2, name: 'Savings', balance: 15000, type: 'Bank' }
@@ -17,7 +13,7 @@ export default function Dashboard({ userId }: DashboardProps) {
     { id: 3, date: '2026-07-26', description: 'Fuel', amount: -50, category: 'Transport' }
   ])
 
-  const [budgets, setBudgets] = useState([
+  const [budgets] = useState([
     { id: 1, category: 'Food', limit: 500, spent: 320, month: '2026-07' },
     { id: 2, category: 'Transport', limit: 300, spent: 180, month: '2026-07' },
     { id: 3, category: 'Entertainment', limit: 200, spent: 75, month: '2026-07' }

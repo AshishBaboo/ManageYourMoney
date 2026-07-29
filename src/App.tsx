@@ -19,7 +19,7 @@ export default function App() {
 
   useEffect(() => {
     checkUser()
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
         setUserId(session.user.id)
         setIsLoggedIn(true)
@@ -82,12 +82,12 @@ export default function App() {
           <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} onLogout={handleLogout} userId={userId} />
           <main className="flex-1 overflow-auto">
             <Routes>
-              <Route path="/" element={<Dashboard userId={userId} />} />
-              <Route path="/accounts" element={<Accounts userId={userId} />} />
-              <Route path="/transactions" element={<Transactions userId={userId} />} />
-              <Route path="/budget" element={<Budget userId={userId} />} />
-              <Route path="/goals" element={<Goals userId={userId} />} />
-              <Route path="/settings" element={<Settings userId={userId} />} />
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/accounts" element={<Accounts />} />
+              <Route path="/transactions" element={<Transactions />} />
+              <Route path="/budget" element={<Budget />} />
+              <Route path="/goals" element={<Goals />} />
+              <Route path="/settings" element={<Settings />} />
             </Routes>
           </main>
         </div>

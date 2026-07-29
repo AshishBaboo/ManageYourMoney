@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Bell, Lock, LogOut, ChevronRight, Save } from 'lucide-react'
 
-export default function Settings() {
+export default function Settings(): JSX.Element {
   const [settings, setSettings] = useState({
     notifications: true,
     emailAlerts: true,

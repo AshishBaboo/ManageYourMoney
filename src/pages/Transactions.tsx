@@ -3,7 +3,7 @@ import { Search, Download, ArrowUpRight, ArrowDownLeft, Plus, X } from 'lucide-r
 import { mockTransactions, mockAccounts, mockCategories, transactionSuggestions } from '../data'
 import AutocompleteInput from '../components/AutocompleteInput'
 
-export default function Transactions() {
+export default function Transactions(): JSX.Element {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all')
   const [showAddForm, setShowAddForm] = useState(false)

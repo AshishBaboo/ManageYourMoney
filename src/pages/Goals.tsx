@@ -1,7 +1,7 @@
 import { Plus, Edit2, Trash2 } from 'lucide-react'
 import { mockGoals } from '../data'
 
-export default function Goals() {
+export default function Goals(): JSX.Element {
   const totalProgress = (
     mockGoals.reduce((sum, goal) => sum + goal.currentAmount, 0) /
     mockGoals.reduce((sum, goal) => sum + goal.targetAmount, 0)
