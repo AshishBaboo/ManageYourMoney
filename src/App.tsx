@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import type { User } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
+import { initTheme } from './lib/theme'
+import { ensureUserRow } from './lib/userData'
 import Header from './components/Header'
 import Sidebar from './components/Sidebar'
 import Dashboard from './pages/Dashboard'
@@ -11,21 +14,21 @@ import Budget from './pages/Budget'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
 
+initTheme()
+
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [user, setUser] = useState<User | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     checkUser()
     const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
-        setUserId(session.user.id)
-        setIsLoggedIn(true)
+        setUser(session.user)
+        ensureUserRow(session.user)
       } else {
-        setUserId(null)
-        setIsLoggedIn(false)
+        setUser(null)
       }
       setLoading(false)
     })
@@ -37,10 +40,10 @@ export default function App() {
 
   const checkUser = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setUserId(user.id)
-        setIsLoggedIn(true)
+      const { data: { user: u } } = await supabase.auth.getUser()
+      if (u) {
+        setUser(u)
+        ensureUserRow(u)
       }
     } catch (error) {
       console.error('Auth check failed:', error)
@@ -52,8 +55,7 @@ export default function App() {
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut()
-      setIsLoggedIn(false)
-      setUserId(null)
+      setUser(null)
     } catch (error) {
       console.error('Logout failed:', error)
     }
@@ -61,25 +63,25 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
-          <div className="w-12 h-12 bg-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+          <p className="text-sm text-gray-600 dark:text-gray-300">Loading...</p>
         </div>
       </div>
     )
   }
 
-  if (!isLoggedIn) {
+  if (!user) {
     return <Login onLogin={() => checkUser()} />
   }
 
   return (
     <Router>
-      <div className="flex h-screen bg-gray-50">
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} onLogout={handleLogout} />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} onLogout={handleLogout} userId={userId} />
+          <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} onLogout={handleLogout} user={user} />
           <main className="flex-1 overflow-auto">
             <Routes>
               <Route path="/" element={<Dashboard />} />

@@ -1,67 +1,89 @@
 import { Menu, Bell, Settings, LogOut } from 'lucide-react'
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import type { User } from '@supabase/supabase-js'
+import { displayName, initials } from '../lib/userData'
 
 interface HeaderProps {
   onMenuClick: () => void
   onLogout?: () => void
-  userId?: string | null
+  user: User | null
 }
 
-export default function Header({ onMenuClick, onLogout, userId }: HeaderProps) {
+export default function Header({ onMenuClick, onLogout, user }: HeaderProps) {
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
 
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
-      <div className="px-3 md:px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+    <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
+      <div className="px-3 md:px-4 py-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
           <button
             onClick={onMenuClick}
-            className="md:hidden p-2 hover:bg-gray-100 rounded-lg transition"
+            aria-label="Menu"
+            className="md:hidden p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition"
           >
-            <Menu className="w-5 h-5 text-gray-600" />
+            <Menu className="w-5 h-5 text-gray-600 dark:text-gray-300" />
           </button>
-          <div className="hidden md:flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center text-white text-xs font-bold">
+          <div className="flex md:hidden items-center gap-2">
+            <div className="w-7 h-7 bg-gradient-to-br from-blue-600 to-blue-700 rounded-md flex items-center justify-center text-white text-[10px] font-bold">
               MYM
             </div>
-            <h1 className="text-lg font-bold text-gray-900">Manage Your Money</h1>
-          </div>
-          <div className="md:hidden">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center text-white text-xs font-bold">
-              MYM
-            </div>
+            <h1 className="text-sm font-semibold text-gray-900 dark:text-white">
+              Manage Your Money
+            </h1>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 md:gap-4">
-          <button className="p-2 hover:bg-gray-100 rounded-lg transition relative">
-            <Bell className="w-5 h-5 text-gray-600" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-          </button>
-          <button className="p-2 hover:bg-gray-100 rounded-lg transition">
-            <Settings className="w-5 h-5 text-gray-600" />
-          </button>
+        <div className="flex items-center gap-1 md:gap-2">
           <div className="relative">
             <button
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className="w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-bold hover:opacity-90 transition"
-              title={userId || 'User'}
+              onClick={() => { setShowNotifications(!showNotifications); setShowUserMenu(false) }}
+              aria-label="Notifications"
+              className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition"
             >
-              {userId ? userId.substring(0, 2).toUpperCase() : 'U'}
+              <Bell className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+            </button>
+            {showNotifications && (
+              <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50">
+                <p className="px-3 py-1 text-xs font-semibold text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-700">
+                  Notifications
+                </p>
+                <p className="px-3 py-3 text-xs text-gray-500 dark:text-gray-400">
+                  You're all caught up 🎉
+                </p>
+              </div>
+            )}
+          </div>
+          <Link
+            to="/settings"
+            aria-label="Settings"
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition"
+          >
+            <Settings className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+          </Link>
+          <div className="relative">
+            <button
+              onClick={() => { setShowUserMenu(!showUserMenu); setShowNotifications(false) }}
+              className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-[11px] font-semibold hover:opacity-90 transition"
+              title={displayName(user)}
+            >
+              {initials(user)}
             </button>
             {showUserMenu && (
-              <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-                <div className="px-4 py-2 border-b border-gray-200">
-                  <p className="text-xs text-gray-600 truncate">{userId}</p>
+              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1.5 z-50">
+                <div className="px-3 py-1.5 border-b border-gray-100 dark:border-gray-700">
+                  <p className="text-xs font-medium text-gray-900 dark:text-white truncate">{displayName(user)}</p>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
                 </div>
                 <button
                   onClick={() => {
                     onLogout?.()
                     setShowUserMenu(false)
                   }}
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition"
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="w-3.5 h-3.5" />
                   Sign Out
                 </button>
               </div>

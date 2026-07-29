@@ -1,226 +1,324 @@
-import { useState } from 'react'
-import { ChevronLeft, ChevronRight, Plus, AlertCircle } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import { mockCategories, mockBudgets, mockTransactions } from '../data'
+import { useEffect, useState } from 'react'
+import { ChevronLeft, ChevronRight, Plus, AlertCircle, X, Trash2, Pencil } from 'lucide-react'
 import { format, addMonths, subMonths } from 'date-fns'
+import { supabase } from '../lib/supabase'
+import { formatCurrency, currencySymbol } from '../lib/currency'
+import { ui } from '../lib/ui'
+import { Toast, useNotify } from '../components/Toast'
+
+interface Category { id: string; name: string; type: string; icon: string | null; budget_limit: number | null }
+interface BudgetRow { id: string; category_id: string; month: string; limit_amount: number }
+interface Tx { id: string; category_id: string | null; amount: number; type: string; date: string }
 
 export default function Budget(): JSX.Element {
-  const [currentMonth, setCurrentMonth] = useState(new Date(2024, 0, 1))
+  const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [categories, setCategories] = useState<Category[]>([])
+  const [budgets, setBudgets] = useState<BudgetRow[]>([])
+  const [transactions, setTransactions] = useState<Tx[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showAddCat, setShowAddCat] = useState(false)
+  const [catForm, setCatForm] = useState({ name: '', type: 'expense', icon: '', limit: '' })
+  const [editingLimit, setEditingLimit] = useState<{ categoryId: string; value: string } | null>(null)
+  const { notice, notify } = useNotify()
+
   const monthStr = format(currentMonth, 'yyyy-MM')
 
-  const currentBudgets = mockBudgets.filter(b => b.month === monthStr)
-  const currentTransactions = mockTransactions.filter(tx => tx.date.startsWith(monthStr))
+  useEffect(() => { load() }, [monthStr])
 
-  // Calculate spending by category
-  const categorySpending = mockCategories
-    .filter(cat => cat.type === 'expense')
-    .map(category => {
-      const budget = currentBudgets.find(b => b.categoryId === category.id)
-      const spent = currentTransactions
-        .filter(tx => tx.category === category.name && tx.type === 'expense')
-        .reduce((sum, tx) => sum + Math.abs(tx.amount), 0)
+  const load = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const [cat, bud, tx] = await Promise.all([
+        supabase.from('categories').select('*').eq('user_id', user.id).order('name'),
+        supabase.from('budgets').select('*').eq('user_id', user.id).eq('month', monthStr),
+        supabase.from('transactions').select('id,category_id,amount,type,date')
+          .eq('user_id', user.id)
+          .gte('date', `${monthStr}-01`)
+          .lte('date', `${monthStr}-31`),
+      ])
+      if (cat.error) throw cat.error
+      setCategories((cat.data || []).map(c => ({ ...c, budget_limit: c.budget_limit == null ? null : Number(c.budget_limit) })))
+      setBudgets((bud.data || []).map(b => ({ ...b, limit_amount: Number(b.limit_amount) })))
+      setTransactions((tx.data || []).map(t => ({ ...t, amount: Number(t.amount) })))
+    } catch (e: any) {
+      notify(e.message || 'Failed to load budget', false)
+    } finally {
+      setLoading(false)
+    }
+  }
 
-      const limit = budget?.limit || category.budgetLimit || 0
-      const remaining = limit - spent
-      const percentage = limit > 0 ? (spent / limit) * 100 : 0
+  const addCategory = async () => {
+    if (!catForm.name.trim()) return notify('Enter a category name', false)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data, error } = await supabase.from('categories').insert({
+        user_id: user.id,
+        name: catForm.name.trim(),
+        type: catForm.type,
+        icon: catForm.icon.trim() || null,
+        budget_limit: parseFloat(catForm.limit) || null,
+      }).select()
+      if (error) throw error
+      setCategories([...categories, { ...data[0], budget_limit: data[0].budget_limit == null ? null : Number(data[0].budget_limit) }])
+      setCatForm({ name: '', type: 'expense', icon: '', limit: '' })
+      setShowAddCat(false)
+      notify('Category added')
+    } catch (e: any) {
+      notify(e.message || 'Failed to add category', false)
+    }
+  }
 
-      return {
-        id: category.id,
-        name: category.name,
-        icon: category.icon,
-        spent,
-        limit,
-        remaining,
-        percentage,
-        color: category.color,
-        isOver: spent > limit
+  const deleteCategory = async (id: string) => {
+    try {
+      const { error, count } = await supabase.from('categories').delete({ count: 'exact' }).eq('id', id)
+      if (error) throw error
+      if (!count) throw new Error('Delete blocked — run supabase-setup.sql')
+      setCategories(categories.filter(c => c.id !== id))
+      notify('Category deleted')
+    } catch (e: any) {
+      notify(e.message || 'Failed to delete', false)
+    }
+  }
+
+  const saveLimit = async () => {
+    if (!editingLimit) return
+    const value = parseFloat(editingLimit.value)
+    if (!value || value <= 0) return notify('Enter a valid limit', false)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const existing = budgets.find(b => b.category_id === editingLimit.categoryId)
+      if (existing) {
+        const { error } = await supabase.from('budgets').update({ limit_amount: value }).eq('id', existing.id)
+        if (error) throw error
+        setBudgets(budgets.map(b => b.id === existing.id ? { ...b, limit_amount: value } : b))
+      } else {
+        const { data, error } = await supabase.from('budgets').insert({
+          user_id: user.id,
+          category_id: editingLimit.categoryId,
+          month: monthStr,
+          limit_amount: value,
+        }).select()
+        if (error) throw error
+        setBudgets([...budgets, { ...data[0], limit_amount: Number(data[0].limit_amount) }])
       }
-    })
+      setEditingLimit(null)
+      notify(`Budget set for ${format(currentMonth, 'MMMM')}`)
+    } catch (e: any) {
+      notify(e.message || 'Failed to save budget', false)
+    }
+  }
 
-  const totalBudget = categorySpending.reduce((sum, c) => sum + c.limit, 0)
-  const totalSpent = categorySpending.reduce((sum, c) => sum + c.spent, 0)
-  const totalRemaining = totalBudget - totalSpent
-  const overallPercentage = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0
+  const expenseCategories = categories.filter(c => c.type === 'expense')
+  const incomeCategories = categories.filter(c => c.type === 'income')
 
-  const chartData = categorySpending.map(c => ({
-    name: c.name,
-    Budget: c.limit,
-    Spent: c.spent,
-    Remaining: Math.max(0, c.remaining)
-  }))
+  const rows = expenseCategories.map(category => {
+    const budget = budgets.find(b => b.category_id === category.id)
+    const spent = transactions
+      .filter(t => t.category_id === category.id && t.type === 'expense')
+      .reduce((s, t) => s + t.amount, 0)
+    const limit = budget?.limit_amount ?? category.budget_limit ?? 0
+    const percentage = limit > 0 ? (spent / limit) * 100 : 0
+    return { category, spent, limit, percentage, isOver: limit > 0 && spent > limit }
+  })
 
-  const overBudgetCategories = categorySpending.filter(c => c.isOver)
+  const totalBudget = rows.reduce((s, r) => s + r.limit, 0)
+  const totalSpent = rows.reduce((s, r) => s + r.spent, 0)
+  const overall = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0
+  const overCategories = rows.filter(r => r.isOver)
 
-  const previousMonth = () => setCurrentMonth(subMonths(currentMonth, 1))
-  const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1))
+  if (loading) return <div className={ui.page}><p className={ui.empty}>Loading budget...</p></div>
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      {/* Header */}
+    <div className={ui.page}>
+      <Toast notice={notice} />
+
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Budget Tracker</h1>
-          <p className="text-gray-600 mt-1">Track your spending against budgets</p>
+          <h1 className={ui.h1}>Budget</h1>
+          <p className={ui.sub}>Categories and monthly limits</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-          <Plus className="w-5 h-5" />
-          <span className="hidden sm:inline">New Category</span>
+        <button onClick={() => setShowAddCat(!showAddCat)} className={ui.btnPrimary}>
+          <span className="flex items-center gap-1"><Plus className="w-3 h-3" /> New Category</span>
         </button>
       </div>
 
-      {/* Month Selector */}
-      <div className="bg-white rounded-xl shadow p-4">
-        <div className="flex items-center justify-between">
-          <button onClick={previousMonth} className="p-2 hover:bg-gray-100 rounded-lg transition">
-            <ChevronLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          <h2 className="text-lg font-bold text-gray-900">{format(currentMonth, 'MMMM yyyy')}</h2>
-          <button onClick={nextMonth} className="p-2 hover:bg-gray-100 rounded-lg transition">
-            <ChevronRight className="w-5 h-5 text-gray-600" />
-          </button>
-        </div>
+      {/* Month selector */}
+      <div className={`${ui.card} flex items-center justify-between py-2`}>
+        <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} aria-label="Previous month" className={ui.iconBtn}>
+          <ChevronLeft className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+        </button>
+        <h2 className={ui.h2}>{format(currentMonth, 'MMMM yyyy')}</h2>
+        <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} aria-label="Next month" className={ui.iconBtn}>
+          <ChevronRight className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+        </button>
       </div>
 
-      {/* Overall Budget Summary */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-6 md:p-8 text-white">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      {/* Add category form */}
+      {showAddCat && (
+        <div className={ui.card}>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className={ui.h2}>New Category</h2>
+            <button onClick={() => setShowAddCat(false)} className={ui.iconBtn}><X className="w-3.5 h-3.5 text-gray-500" /></button>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <div>
+              <label className={ui.label}>Name</label>
+              <input className={ui.input} placeholder="e.g. Groceries" value={catForm.name}
+                onChange={e => setCatForm({ ...catForm, name: e.target.value })} />
+            </div>
+            <div>
+              <label className={ui.label}>Type</label>
+              <select className={ui.select} value={catForm.type} onChange={e => setCatForm({ ...catForm, type: e.target.value })}>
+                <option value="expense">Expense</option>
+                <option value="income">Income</option>
+              </select>
+            </div>
+            <div>
+              <label className={ui.label}>Emoji (optional)</label>
+              <input className={ui.input} placeholder="🛒" value={catForm.icon}
+                onChange={e => setCatForm({ ...catForm, icon: e.target.value })} />
+            </div>
+            <div>
+              <label className={ui.label}>Monthly Limit ({currencySymbol()})</label>
+              <input className={ui.input} type="number" placeholder="0" value={catForm.limit}
+                onChange={e => setCatForm({ ...catForm, limit: e.target.value })} />
+            </div>
+          </div>
+          <button onClick={addCategory} className={`${ui.btnPrimary} mt-2 w-full md:w-auto`}>Save Category</button>
+        </div>
+      )}
+
+      {/* Overall summary */}
+      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-3 text-white">
+        <div className="grid grid-cols-4 gap-2">
           <div>
-            <p className="text-blue-100 mb-2">Total Budget</p>
-            <h3 className="text-3xl font-bold">${totalBudget.toLocaleString('en-US', { minimumFractionDigits: 2 })}</h3>
+            <p className="text-[11px] text-blue-100">Budget</p>
+            <p className="text-sm font-semibold">{formatCurrency(totalBudget)}</p>
           </div>
           <div>
-            <p className="text-blue-100 mb-2">Total Spent</p>
-            <h3 className="text-3xl font-bold">${totalSpent.toLocaleString('en-US', { minimumFractionDigits: 2 })}</h3>
+            <p className="text-[11px] text-blue-100">Spent</p>
+            <p className="text-sm font-semibold">{formatCurrency(totalSpent)}</p>
           </div>
           <div>
-            <p className="text-blue-100 mb-2">Remaining</p>
-            <h3 className={`text-3xl font-bold ${totalRemaining < 0 ? 'text-red-300' : 'text-green-300'}`}>
-              ${totalRemaining.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-            </h3>
+            <p className="text-[11px] text-blue-100">Remaining</p>
+            <p className={`text-sm font-semibold ${totalBudget - totalSpent < 0 ? 'text-red-300' : 'text-green-300'}`}>
+              {formatCurrency(totalBudget - totalSpent)}
+            </p>
           </div>
           <div>
-            <p className="text-blue-100 mb-2">Usage</p>
-            <h3 className="text-3xl font-bold">{overallPercentage.toFixed(1)}%</h3>
+            <p className="text-[11px] text-blue-100">Usage</p>
+            <p className="text-sm font-semibold">{overall.toFixed(0)}%</p>
           </div>
         </div>
-        <div className="mt-6 w-full bg-white bg-opacity-20 rounded-full h-3">
+        <div className="mt-2 w-full bg-white/20 rounded-full h-1.5">
           <div
-            className={`h-3 rounded-full transition-all ${overallPercentage > 90 ? 'bg-red-400' : overallPercentage > 75 ? 'bg-yellow-400' : 'bg-green-400'}`}
-            style={{ width: `${Math.min(overallPercentage, 100)}%` }}
+            className={`h-1.5 rounded-full transition-all ${overall > 90 ? 'bg-red-400' : overall > 75 ? 'bg-yellow-400' : 'bg-green-400'}`}
+            style={{ width: `${Math.min(overall, 100)}%` }}
           />
         </div>
       </div>
 
-      {/* Alerts */}
-      {overBudgetCategories.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
-            <div>
-              <h3 className="font-semibold text-red-900">Budget Alerts</h3>
-              <p className="text-sm text-red-800 mt-1">
-                You've exceeded your budget in {overBudgetCategories.length} {overBudgetCategories.length === 1 ? 'category' : 'categories'}:
-              </p>
-              <ul className="mt-2 space-y-1">
-                {overBudgetCategories.map(cat => (
-                  <li key={cat.id} className="text-sm text-red-800">
-                    <span className="font-medium">{cat.name}</span> — Over by ${(cat.spent - cat.limit).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                  </li>
-                ))}
-              </ul>
-            </div>
+      {/* Over-budget alerts */}
+      {overCategories.length > 0 && (
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-900 rounded-lg p-2.5 flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
+          <div className="text-xs text-red-800 dark:text-red-300">
+            <span className="font-semibold">Over budget: </span>
+            {overCategories.map(r => `${r.category.name} (+${formatCurrency(r.spent - r.limit)})`).join(', ')}
           </div>
         </div>
       )}
 
-      {/* Budget vs Spent Chart */}
-      <div className="bg-white rounded-xl shadow p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-6">Budget Breakdown</h3>
-        <ResponsiveContainer width="100%" height={400}>
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-            <XAxis dataKey="name" stroke="#6B7280" angle={-45} textAnchor="end" height={100} />
-            <YAxis stroke="#6B7280" />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="Budget" fill="#3B82F6" radius={[8, 8, 0, 0]} />
-            <Bar dataKey="Spent" fill="#EF4444" radius={[8, 8, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* Category Breakdown */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-bold text-gray-900">Category Details</h3>
-        {categorySpending.map(category => (
-          <div key={category.id} className="bg-white rounded-xl shadow p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <span className="text-3xl">{category.icon}</span>
-                <div>
-                  <h4 className="font-bold text-gray-900">{category.name}</h4>
-                  <p className={`text-sm ${category.isOver ? 'text-red-600 font-semibold' : 'text-gray-600'}`}>
-                    {category.isOver && '⚠️ '} ${category.spent.toLocaleString('en-US', { minimumFractionDigits: 2 })} of ${category.limit.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                  </p>
+      {/* Expense categories with budgets */}
+      <div className={ui.card}>
+        <h2 className={`${ui.h2} mb-2`}>Expense Categories</h2>
+        {rows.length === 0 ? (
+          <p className={ui.empty}>No expense categories yet — create one to start budgeting.</p>
+        ) : (
+          <div className="space-y-2.5">
+            {rows.map(({ category, spent, limit, percentage, isOver }) => (
+              <div key={category.id} className="p-2 bg-gray-50 dark:bg-gray-700/50 rounded-md">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {category.icon && <span className="text-sm">{category.icon}</span>}
+                    <p className={`${ui.strong} truncate`}>{category.name}</p>
+                    {isOver && <span className="text-[10px] font-semibold text-red-600 dark:text-red-400">OVER</span>}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <p className={ui.sub}>
+                      {formatCurrency(spent)} / {limit > 0 ? formatCurrency(limit) : 'no limit'}
+                    </p>
+                    <button
+                      onClick={() => setEditingLimit({ categoryId: category.id, value: limit ? String(limit) : '' })}
+                      aria-label={`Edit budget for ${category.name}`}
+                      className={ui.iconBtn}
+                    >
+                      <Pencil className="w-3 h-3 text-gray-500" />
+                    </button>
+                    <button onClick={() => deleteCategory(category.id)} aria-label={`Delete ${category.name}`} className={ui.iconBtnDanger}>
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <div className="text-right">
-                <p className={`text-2xl font-bold ${category.isOver ? 'text-red-600' : 'text-green-600'}`}>
-                  {category.percentage.toFixed(0)}%
-                </p>
-                <p className="text-sm text-gray-600">
-                  {category.isOver ? 'Over' : 'Remaining'}: ${Math.abs(category.remaining).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-            </div>
-
-            <div className="w-full bg-gray-200 rounded-full h-3">
-              <div
-                className={`h-3 rounded-full transition-all ${
-                  category.percentage > 100 ? 'bg-red-600' : category.percentage > 75 ? 'bg-yellow-500' : 'bg-green-500'
-                }`}
-                style={{ width: `${Math.min(category.percentage, 100)}%` }}
-              />
-            </div>
-
-            {category.isOver && (
-              <div className="mt-3 p-3 bg-red-50 rounded-lg">
-                <p className="text-sm text-red-700">
-                  <span className="font-semibold">Over budget:</span> You've spent ${(category.spent - category.limit).toLocaleString('en-US', { minimumFractionDigits: 2 })} more than your budget
-                </p>
-              </div>
-            )}
-
-            <div className="mt-4 flex gap-2">
-              <button className="flex-1 px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium">
-                Edit Budget
-              </button>
-              <button className="flex-1 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
-                View Transactions
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Spending by Category */}
-      <div className="bg-white rounded-xl shadow p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-4">Spending Summary</h3>
-        <div className="space-y-3">
-          {categorySpending
-            .sort((a, b) => b.spent - a.spent)
-            .map(category => (
-              <div key={category.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">{category.icon}</span>
-                  <span className="font-medium text-gray-900">{category.name}</span>
+                <div className={ui.progressTrack}>
+                  <div
+                    className={`h-1.5 rounded-full transition-all ${
+                      percentage > 100 ? 'bg-red-500' : percentage > 75 ? 'bg-yellow-500' : 'bg-green-500'
+                    }`}
+                    style={{ width: `${Math.min(percentage, 100)}%` }}
+                  />
                 </div>
-                <span className="font-bold text-gray-900">
-                  ${category.spent.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                </span>
+                {editingLimit?.categoryId === category.id && (
+                  <div className="flex gap-1.5 mt-1.5">
+                    <input
+                      className={ui.input}
+                      type="number"
+                      placeholder={`Limit for ${format(currentMonth, 'MMMM')}`}
+                      value={editingLimit.value}
+                      onChange={e => setEditingLimit({ ...editingLimit, value: e.target.value })}
+                      autoFocus
+                    />
+                    <button onClick={saveLimit} className={ui.btnPrimary}>Set</button>
+                    <button onClick={() => setEditingLimit(null)} className={ui.btnSecondary}>Cancel</button>
+                  </div>
+                )}
               </div>
             ))}
-        </div>
+          </div>
+        )}
+      </div>
+
+      {/* Income categories */}
+      <div className={ui.card}>
+        <h2 className={`${ui.h2} mb-2`}>Income Categories</h2>
+        {incomeCategories.length === 0 ? (
+          <p className={ui.empty}>No income categories yet.</p>
+        ) : (
+          <div className="space-y-1.5">
+            {incomeCategories.map(category => {
+              const earned = transactions
+                .filter(t => t.category_id === category.id && t.type === 'income')
+                .reduce((s, t) => s + t.amount, 0)
+              return (
+                <div key={category.id} className={ui.row}>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {category.icon && <span className="text-sm">{category.icon}</span>}
+                    <p className={`${ui.strong} truncate`}>{category.name}</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <p className="text-xs font-semibold text-green-600 dark:text-green-400">+{formatCurrency(earned)}</p>
+                    <button onClick={() => deleteCategory(category.id)} aria-label={`Delete ${category.name}`} className={ui.iconBtnDanger}>
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )

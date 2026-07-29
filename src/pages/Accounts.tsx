@@ -1,117 +1,242 @@
-import { Plus, Send, TrendingUp } from 'lucide-react'
-import { mockAccounts } from '../data'
+import { useEffect, useState } from 'react'
+import { Plus, Send, Trash2, X, Wallet, PiggyBank, CreditCard, Banknote } from 'lucide-react'
+import { supabase } from '../lib/supabase'
+import { formatCurrency } from '../lib/currency'
+import { ui } from '../lib/ui'
+import { Toast, useNotify } from '../components/Toast'
+
+interface Account {
+  id: string
+  name: string
+  type: string
+  balance: number
+}
+
+const TYPE_META: Record<string, { label: string; icon: typeof Wallet }> = {
+  savings: { label: 'Savings', icon: PiggyBank },
+  checking: { label: 'Checking', icon: Wallet },
+  credit: { label: 'Credit', icon: CreditCard },
+  cash: { label: 'Cash', icon: Banknote },
+}
 
 export default function Accounts(): JSX.Element {
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showAdd, setShowAdd] = useState(false)
+  const [showTransfer, setShowTransfer] = useState(false)
+  const [form, setForm] = useState({ name: '', type: 'savings', balance: '' })
+  const [transfer, setTransfer] = useState({ from: '', to: '', amount: '' })
+  const { notice, notify } = useNotify()
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  const load = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data, error } = await supabase
+        .from('accounts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at')
+      if (error) throw error
+      setAccounts((data || []).map(a => ({ ...a, balance: Number(a.balance) })))
+    } catch (e: any) {
+      notify(e.message || 'Failed to load accounts', false)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const addAccount = async () => {
+    if (!form.name.trim()) return notify('Enter an account name', false)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data, error } = await supabase
+        .from('accounts')
+        .insert({
+          user_id: user.id,
+          name: form.name.trim(),
+          type: form.type,
+          balance: parseFloat(form.balance) || 0,
+        })
+        .select()
+      if (error) throw error
+      setAccounts([...accounts, { ...data[0], balance: Number(data[0].balance) }])
+      setForm({ name: '', type: 'savings', balance: '' })
+      setShowAdd(false)
+      notify('Account added')
+    } catch (e: any) {
+      notify(e.message || 'Failed to add account', false)
+    }
+  }
+
+  const deleteAccount = async (id: string) => {
+    try {
+      const { error, count } = await supabase.from('accounts').delete({ count: 'exact' }).eq('id', id)
+      if (error) throw error
+      if (!count) throw new Error('Delete blocked — run supabase-setup.sql')
+      setAccounts(accounts.filter(a => a.id !== id))
+      notify('Account deleted')
+    } catch (e: any) {
+      notify(e.message || 'Failed to delete', false)
+    }
+  }
+
+  const doTransfer = async () => {
+    const amount = parseFloat(transfer.amount)
+    const from = accounts.find(a => a.id === transfer.from)
+    const to = accounts.find(a => a.id === transfer.to)
+    if (!from || !to || from.id === to.id) return notify('Pick two different accounts', false)
+    if (!amount || amount <= 0) return notify('Enter a valid amount', false)
+    if (from.balance < amount) return notify('Insufficient balance', false)
+    try {
+      const { error: e1 } = await supabase.from('accounts').update({ balance: from.balance - amount }).eq('id', from.id)
+      if (e1) throw e1
+      const { error: e2 } = await supabase.from('accounts').update({ balance: to.balance + amount }).eq('id', to.id)
+      if (e2) throw e2
+      setAccounts(accounts.map(a =>
+        a.id === from.id ? { ...a, balance: a.balance - amount } :
+        a.id === to.id ? { ...a, balance: a.balance + amount } : a
+      ))
+      setTransfer({ from: '', to: '', amount: '' })
+      setShowTransfer(false)
+      notify(`Transferred ${formatCurrency(amount)}`)
+    } catch (e: any) {
+      notify(e.message || 'Transfer failed', false)
+    }
+  }
+
+  const totalBalance = accounts.reduce((s, a) => s + a.balance, 0)
+
+  if (loading) {
+    return <div className={ui.page}><p className={ui.empty}>Loading accounts...</p></div>
+  }
+
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <div className={ui.page}>
+      <Toast notice={notice} />
+
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Accounts</h1>
-          <p className="text-gray-600 mt-1">Manage your savings and checking accounts</p>
+          <h1 className={ui.h1}>Accounts</h1>
+          <p className={ui.sub}>Manage your accounts and transfers</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-          <Plus className="w-5 h-5" />
-          <span className="hidden sm:inline">Add Account</span>
-        </button>
-      </div>
-
-      {/* Total Balance Summary */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-6 md:p-8 text-white">
-        <p className="text-blue-100 mb-2">Total Balance</p>
-        <h2 className="text-3xl md:text-4xl font-bold mb-8">
-          ${mockAccounts.reduce((sum, acc) => sum + acc.balance, 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-        </h2>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="p-4 bg-white bg-opacity-20 rounded-lg backdrop-blur">
-            <p className="text-sm text-blue-100 mb-1">Savings</p>
-            <p className="text-xl font-bold">${(mockAccounts[0].balance + mockAccounts[2].balance).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-          </div>
-          <div className="p-4 bg-white bg-opacity-20 rounded-lg backdrop-blur">
-            <p className="text-sm text-blue-100 mb-1">Checking</p>
-            <p className="text-xl font-bold">${mockAccounts[1].balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-          </div>
+        <div className="flex gap-1.5">
+          <button
+            onClick={() => { setShowTransfer(!showTransfer); setShowAdd(false) }}
+            className={ui.btnSecondary}
+            disabled={accounts.length < 2}
+          >
+            <span className="flex items-center gap-1"><Send className="w-3 h-3" /> Transfer</span>
+          </button>
+          <button onClick={() => { setShowAdd(!showAdd); setShowTransfer(false) }} className={ui.btnPrimary}>
+            <span className="flex items-center gap-1"><Plus className="w-3 h-3" /> Add Account</span>
+          </button>
         </div>
       </div>
 
-      {/* Accounts Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {mockAccounts.map((account) => (
-          <div key={account.id} className="bg-white rounded-xl shadow hover:shadow-lg transition p-6">
-            <div className="flex items-start justify-between mb-6">
-              <div>
-                <p className="text-gray-600 text-sm mb-1">Account Type</p>
-                <p className="font-semibold text-gray-900 capitalize">{account.type}</p>
-              </div>
-              <span className="text-3xl">{account.icon}</span>
-            </div>
-
-            <div className="mb-6">
-              <p className="text-gray-600 text-sm mb-1">{account.name}</p>
-              <h3 className="text-2xl font-bold text-gray-900">
-                ${account.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-              </h3>
-            </div>
-
-            <div className="flex gap-2">
-              <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium">
-                <Send className="w-4 h-4" />
-                Transfer
-              </button>
-              <button className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm font-medium">
-                Details
-              </button>
-            </div>
-          </div>
-        ))}
+      {/* Total balance strip */}
+      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-3 text-white">
+        <p className="text-[11px] text-blue-100">Total Balance</p>
+        <p className="text-xl font-semibold">{formatCurrency(totalBalance)}</p>
+        <p className="text-[11px] text-blue-100 mt-0.5">{accounts.length} account{accounts.length === 1 ? '' : 's'}</p>
       </div>
 
-      {/* Account Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-6">Monthly Savings Trend</h3>
-          <div className="space-y-4">
-            {[
-              { month: 'June', amount: 2400, change: '+5.2%' },
-              { month: 'May', amount: 2200, change: '+3.1%' },
-              { month: 'April', amount: 1900, change: '-2.4%' },
-              { month: 'March', amount: 2100, change: '+4.8%' }
-            ].map((item, idx) => (
-              <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-900">{item.month}</p>
-                  <p className="text-sm text-gray-600">${item.amount}</p>
-                </div>
-                <p className={`flex items-center gap-1 font-semibold ${item.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
-                  <TrendingUp className="w-4 h-4" />
-                  {item.change}
-                </p>
-              </div>
-            ))}
+      {/* Add form */}
+      {showAdd && (
+        <div className={ui.card}>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className={ui.h2}>New Account</h2>
+            <button onClick={() => setShowAdd(false)} className={ui.iconBtn}><X className="w-3.5 h-3.5 text-gray-500" /></button>
           </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <div>
+              <label className={ui.label}>Name</label>
+              <input className={ui.input} placeholder="e.g. HDFC Savings" value={form.name}
+                onChange={e => setForm({ ...form, name: e.target.value })} />
+            </div>
+            <div>
+              <label className={ui.label}>Type</label>
+              <select className={ui.select} value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
+                {Object.entries(TYPE_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={ui.label}>Opening Balance</label>
+              <input className={ui.input} type="number" placeholder="0" value={form.balance}
+                onChange={e => setForm({ ...form, balance: e.target.value })} />
+            </div>
+          </div>
+          <button onClick={addAccount} className={`${ui.btnPrimary} mt-2 w-full md:w-auto`}>Save Account</button>
         </div>
+      )}
 
-        <div className="bg-white rounded-xl shadow p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-6">Account Performance</h3>
-          <div className="space-y-4">
-            {mockAccounts.map((account) => (
-              <div key={account.id} className="p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="font-medium text-gray-900">{account.name}</p>
-                  <span className="text-lg">{account.icon}</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-blue-600 h-2 rounded-full"
-                    style={{ width: `${(account.balance / 30000) * 100}%` }}
-                  />
-                </div>
-                <p className="text-xs text-gray-600 mt-2">
-                  {Math.round((account.balance / 30000) * 100)}% of max capacity
-                </p>
-              </div>
-            ))}
+      {/* Transfer form */}
+      {showTransfer && (
+        <div className={ui.card}>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className={ui.h2}>Transfer Between Accounts</h2>
+            <button onClick={() => setShowTransfer(false)} className={ui.iconBtn}><X className="w-3.5 h-3.5 text-gray-500" /></button>
           </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <div>
+              <label className={ui.label}>From</label>
+              <select className={ui.select} value={transfer.from} onChange={e => setTransfer({ ...transfer, from: e.target.value })}>
+                <option value="">Select account</option>
+                {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({formatCurrency(a.balance)})</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={ui.label}>To</label>
+              <select className={ui.select} value={transfer.to} onChange={e => setTransfer({ ...transfer, to: e.target.value })}>
+                <option value="">Select account</option>
+                {accounts.filter(a => a.id !== transfer.from).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={ui.label}>Amount</label>
+              <input className={ui.input} type="number" placeholder="0" value={transfer.amount}
+                onChange={e => setTransfer({ ...transfer, amount: e.target.value })} />
+            </div>
+          </div>
+          <button onClick={doTransfer} className={`${ui.btnPrimary} mt-2 w-full md:w-auto`}>Transfer Now</button>
         </div>
+      )}
+
+      {/* Accounts list */}
+      <div className={ui.card}>
+        <h2 className={`${ui.h2} mb-2`}>Your Accounts</h2>
+        {accounts.length === 0 ? (
+          <p className={ui.empty}>No accounts yet — tap "Add Account" to create your first one.</p>
+        ) : (
+          <div className="space-y-1.5">
+            {accounts.map(account => {
+              const meta = TYPE_META[account.type] || TYPE_META.savings
+              const Icon = meta.icon
+              return (
+                <div key={account.id} className={ui.row}>
+                  <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                    <div className="w-8 h-8 rounded-md bg-blue-50 dark:bg-blue-900/40 flex items-center justify-center shrink-0">
+                      <Icon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className={`${ui.strong} truncate`}>{account.name}</p>
+                      <p className={ui.sub}>{meta.label}</p>
+                    </div>
+                  </div>
+                  <p className={`${ui.strong} mr-2 whitespace-nowrap`}>{formatCurrency(account.balance)}</p>
+                  <button onClick={() => deleteAccount(account.id)} aria-label={`Delete ${account.name}`} className={ui.iconBtnDanger}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )

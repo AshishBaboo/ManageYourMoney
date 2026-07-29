@@ -1,147 +1,261 @@
-import { Plus, Edit2, Trash2 } from 'lucide-react'
-import { mockGoals } from '../data'
+import { useEffect, useState } from 'react'
+import { Plus, Trash2, X, PlusCircle } from 'lucide-react'
+import { supabase } from '../lib/supabase'
+import { formatCurrency, currencySymbol } from '../lib/currency'
+import { ui } from '../lib/ui'
+import { Toast, useNotify } from '../components/Toast'
+
+interface Goal {
+  id: string
+  name: string
+  target_amount: number
+  current_amount: number
+  deadline: string
+  icon: string | null
+}
+
+const SUGGESTED = [
+  { name: 'Emergency Fund', icon: '🚨', target: 100000 },
+  { name: 'Vacation', icon: '✈️', target: 50000 },
+  { name: 'New Vehicle', icon: '🚗', target: 200000 },
+]
 
 export default function Goals(): JSX.Element {
-  const totalProgress = (
-    mockGoals.reduce((sum, goal) => sum + goal.currentAmount, 0) /
-    mockGoals.reduce((sum, goal) => sum + goal.targetAmount, 0)
-  ) * 100
+  const [goals, setGoals] = useState<Goal[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showAdd, setShowAdd] = useState(false)
+  const [form, setForm] = useState({ name: '', icon: '', target: '', deadline: '' })
+  const [addingFunds, setAddingFunds] = useState<{ goalId: string; value: string } | null>(null)
+  const { notice, notify } = useNotify()
+
+  useEffect(() => { load() }, [])
+
+  const load = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data, error } = await supabase
+        .from('savings_goals')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at')
+      if (error) throw error
+      setGoals((data || []).map(g => ({
+        ...g,
+        target_amount: Number(g.target_amount),
+        current_amount: Number(g.current_amount),
+      })))
+    } catch (e: any) {
+      notify(e.message || 'Failed to load goals', false)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const addGoal = async (preset?: { name: string; icon: string; target: number }) => {
+    const name = preset?.name || form.name.trim()
+    const target = preset?.target || parseFloat(form.target)
+    const icon = preset?.icon || form.icon.trim() || '🎯'
+    const deadline = preset ? new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().slice(0, 10) : form.deadline
+    if (!name) return notify('Enter a goal name', false)
+    if (!target || target <= 0) return notify('Enter a valid target amount', false)
+    if (!deadline) return notify('Pick a deadline', false)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data, error } = await supabase.from('savings_goals').insert({
+        user_id: user.id,
+        name,
+        target_amount: target,
+        current_amount: 0,
+        deadline,
+        icon,
+      }).select()
+      if (error) throw error
+      setGoals([...goals, { ...data[0], target_amount: Number(data[0].target_amount), current_amount: Number(data[0].current_amount) }])
+      setForm({ name: '', icon: '', target: '', deadline: '' })
+      setShowAdd(false)
+      notify('Goal created')
+    } catch (e: any) {
+      notify(e.message || 'Failed to create goal', false)
+    }
+  }
+
+  const deleteGoal = async (id: string) => {
+    try {
+      const { error, count } = await supabase.from('savings_goals').delete({ count: 'exact' }).eq('id', id)
+      if (error) throw error
+      if (!count) throw new Error('Delete blocked — run supabase-setup.sql')
+      setGoals(goals.filter(g => g.id !== id))
+      notify('Goal deleted')
+    } catch (e: any) {
+      notify(e.message || 'Failed to delete', false)
+    }
+  }
+
+  const addFunds = async () => {
+    if (!addingFunds) return
+    const amount = parseFloat(addingFunds.value)
+    if (!amount || amount <= 0) return notify('Enter a valid amount', false)
+    const goal = goals.find(g => g.id === addingFunds.goalId)
+    if (!goal) return
+    try {
+      const newAmount = goal.current_amount + amount
+      const { error } = await supabase.from('savings_goals').update({ current_amount: newAmount }).eq('id', goal.id)
+      if (error) throw error
+      setGoals(goals.map(g => g.id === goal.id ? { ...g, current_amount: newAmount } : g))
+      setAddingFunds(null)
+      notify(`Added ${formatCurrency(amount)} to ${goal.name}`)
+    } catch (e: any) {
+      notify(e.message || 'Failed to add funds', false)
+    }
+  }
+
+  const totalSaved = goals.reduce((s, g) => s + g.current_amount, 0)
+  const totalTarget = goals.reduce((s, g) => s + g.target_amount, 0)
+  const totalProgress = totalTarget > 0 ? (totalSaved / totalTarget) * 100 : 0
+
+  if (loading) return <div className={ui.page}><p className={ui.empty}>Loading goals...</p></div>
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <div className={ui.page}>
+      <Toast notice={notice} />
+
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Savings Goals</h1>
-          <p className="text-gray-600 mt-1">Track and manage your financial goals</p>
+          <h1 className={ui.h1}>Savings Goals</h1>
+          <p className={ui.sub}>Track your progress</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-          <Plus className="w-5 h-5" />
-          <span className="hidden sm:inline">New Goal</span>
+        <button onClick={() => setShowAdd(!showAdd)} className={ui.btnPrimary}>
+          <span className="flex items-center gap-1"><Plus className="w-3 h-3" /> New Goal</span>
         </button>
       </div>
 
-      {/* Overall Progress */}
-      <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl p-6 md:p-8 text-white">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <p className="text-green-100 mb-2">Overall Progress</p>
-            <h2 className="text-3xl md:text-4xl font-bold">
-              ${mockGoals.reduce((sum, g) => sum + g.currentAmount, 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-            </h2>
-            <p className="text-green-100 text-sm mt-1">
-              of ${mockGoals.reduce((sum, g) => sum + g.targetAmount, 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} saved
-            </p>
+      {/* Overall progress */}
+      {goals.length > 0 && (
+        <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg p-3 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[11px] text-green-100">Total Saved</p>
+              <p className="text-lg font-semibold">{formatCurrency(totalSaved)}</p>
+              <p className="text-[11px] text-green-100">of {formatCurrency(totalTarget)}</p>
+            </div>
+            <p className="text-2xl font-semibold">{Math.round(totalProgress)}%</p>
           </div>
-          <div className="text-right">
-            <p className="text-5xl font-bold">{Math.round(totalProgress)}%</p>
-            <p className="text-green-100">{mockGoals.filter(g => (g.currentAmount / g.targetAmount) === 1).length} Completed</p>
+          <div className="mt-2 w-full bg-white/20 rounded-full h-1.5">
+            <div className="bg-white h-1.5 rounded-full transition-all" style={{ width: `${Math.min(totalProgress, 100)}%` }} />
           </div>
         </div>
-        <div className="w-full bg-white bg-opacity-20 rounded-full h-3">
-          <div
-            className="bg-white h-3 rounded-full transition-all"
-            style={{ width: `${totalProgress}%` }}
-          />
+      )}
+
+      {/* Add goal form */}
+      {showAdd && (
+        <div className={ui.card}>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className={ui.h2}>New Goal</h2>
+            <button onClick={() => setShowAdd(false)} className={ui.iconBtn}><X className="w-3.5 h-3.5 text-gray-500" /></button>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <div>
+              <label className={ui.label}>Name</label>
+              <input className={ui.input} placeholder="e.g. New Laptop" value={form.name}
+                onChange={e => setForm({ ...form, name: e.target.value })} />
+            </div>
+            <div>
+              <label className={ui.label}>Emoji (optional)</label>
+              <input className={ui.input} placeholder="💻" value={form.icon}
+                onChange={e => setForm({ ...form, icon: e.target.value })} />
+            </div>
+            <div>
+              <label className={ui.label}>Target ({currencySymbol()})</label>
+              <input className={ui.input} type="number" placeholder="0" value={form.target}
+                onChange={e => setForm({ ...form, target: e.target.value })} />
+            </div>
+            <div>
+              <label className={ui.label}>Deadline</label>
+              <input className={ui.input} type="date" value={form.deadline}
+                onChange={e => setForm({ ...form, deadline: e.target.value })} />
+            </div>
+          </div>
+          <button onClick={() => addGoal()} className={`${ui.btnPrimary} mt-2 w-full md:w-auto`}>Create Goal</button>
         </div>
-      </div>
+      )}
 
-      {/* Goals Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {mockGoals.map((goal) => {
-          const progress = (goal.currentAmount / goal.targetAmount) * 100
-          const remaining = goal.targetAmount - goal.currentAmount
-          const deadline = new Date(goal.deadline)
-          const daysLeft = Math.ceil((deadline.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
-
-          return (
-            <div key={goal.id} className="bg-white rounded-xl shadow hover:shadow-lg transition p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <span className="text-4xl">{goal.icon}</span>
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-900">{goal.name}</h3>
-                    <p className="text-sm text-gray-600">
-                      {daysLeft > 0 ? `${daysLeft} days left` : 'Deadline reached'}
-                    </p>
+      {/* Goals list */}
+      {goals.length === 0 ? (
+        <div className={ui.card}>
+          <p className={ui.empty}>No goals yet — create one above or pick a suggestion below.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          {goals.map(goal => {
+            const progress = goal.target_amount > 0 ? (goal.current_amount / goal.target_amount) * 100 : 0
+            const daysLeft = Math.ceil((new Date(goal.deadline).getTime() - Date.now()) / 86400000)
+            return (
+              <div key={goal.id} className={ui.card}>
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xl">{goal.icon || '🎯'}</span>
+                    <div className="min-w-0">
+                      <p className={`${ui.strong} truncate`}>{goal.name}</p>
+                      <p className={ui.sub}>{daysLeft > 0 ? `${daysLeft} days left` : 'Deadline passed'}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex gap-2">
-                  <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition">
-                    <Trash2 className="w-4 h-4" />
+                  <button onClick={() => deleteGoal(goal.id)} aria-label={`Delete ${goal.name}`} className={ui.iconBtnDanger}>
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
-              </div>
 
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-600">Progress</span>
-                  <span className="text-lg font-bold text-gray-900">{Math.round(progress)}%</span>
+                <div className="flex items-center justify-between mb-1">
+                  <p className={ui.sub}>{formatCurrency(goal.current_amount)} of {formatCurrency(goal.target_amount)}</p>
+                  <p className="text-xs font-semibold text-gray-900 dark:text-white">{Math.round(progress)}%</p>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
+                <div className={ui.progressTrack}>
                   <div
-                    className={`bg-gradient-to-r ${goal.color} h-3 rounded-full transition-all`}
-                    style={{ width: `${progress}%` }}
+                    className={`h-1.5 rounded-full transition-all ${progress >= 100 ? 'bg-green-500' : 'bg-blue-500'}`}
+                    style={{ width: `${Math.min(progress, 100)}%` }}
                   />
                 </div>
-              </div>
 
-              <div className="grid grid-cols-3 gap-4 mb-6 pt-6 border-t border-gray-200">
-                <div>
-                  <p className="text-xs text-gray-600 mb-1">Saved</p>
-                  <p className="font-semibold text-gray-900">
-                    ${goal.currentAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-600 mb-1">Goal</p>
-                  <p className="font-semibold text-gray-900">
-                    ${goal.targetAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-600 mb-1">Remaining</p>
-                  <p className="font-semibold text-gray-900">
-                    ${remaining.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                  </p>
-                </div>
+                {addingFunds?.goalId === goal.id ? (
+                  <div className="flex gap-1.5 mt-2">
+                    <input
+                      className={ui.input}
+                      type="number"
+                      placeholder="Amount"
+                      value={addingFunds.value}
+                      onChange={e => setAddingFunds({ ...addingFunds, value: e.target.value })}
+                      autoFocus
+                    />
+                    <button onClick={addFunds} className={ui.btnPrimary}>Add</button>
+                    <button onClick={() => setAddingFunds(null)} className={ui.btnSecondary}>Cancel</button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setAddingFunds({ goalId: goal.id, value: '' })}
+                    className={`${ui.btnSecondary} mt-2 w-full`}
+                  >
+                    <span className="flex items-center justify-center gap-1"><PlusCircle className="w-3 h-3" /> Add Funds</span>
+                  </button>
+                )}
               </div>
+            )
+          })}
+        </div>
+      )}
 
-              <div className="flex gap-2">
-                <button className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm">
-                  Add Funds
-                </button>
-                <button className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium text-sm">
-                  View Details
-                </button>
+      {/* Suggestions */}
+      <div className={ui.card}>
+        <h2 className={`${ui.h2} mb-2`}>Suggestions</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+          {SUGGESTED.map((s, idx) => (
+            <div key={idx} className="p-2.5 border border-dashed border-gray-300 dark:border-gray-600 rounded-md">
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-base">{s.icon}</span>
+                <p className={ui.strong}>{s.name}</p>
               </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Goal Suggestions */}
-      <div className="bg-white rounded-xl shadow p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-4">Recommended Goals</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[
-            { name: 'Emergency Fund', icon: '🚨', target: 10000 },
-            { name: 'Wedding', icon: '💒', target: 25000 },
-            { name: 'Business Investment', icon: '📈', target: 50000 }
-          ].map((suggestion, idx) => (
-            <div key={idx} className="p-4 border border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-2xl">{suggestion.icon}</span>
-                <p className="font-semibold text-gray-900">{suggestion.name}</p>
-              </div>
-              <p className="text-sm text-gray-600 mb-4">
-                Target: ${suggestion.target.toLocaleString()}
-              </p>
-              <button className="w-full px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition font-medium text-sm">
-                Create Goal
-              </button>
+              <p className={`${ui.sub} mb-2`}>Target: {formatCurrency(s.target)}</p>
+              <button onClick={() => addGoal(s)} className={`${ui.btnSecondary} w-full`}>Create</button>
             </div>
           ))}
         </div>

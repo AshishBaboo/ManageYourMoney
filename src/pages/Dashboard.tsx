@@ -1,187 +1,161 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Plus, Trash2, ArrowRight } from 'lucide-react'
+import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { formatCurrency } from '../lib/currency'
+import { ui } from '../lib/ui'
+import { Toast, useNotify } from '../components/Toast'
+
+interface Account { id: string; name: string; type: string; balance: number }
+interface Tx { id: string; description: string; amount: number; type: string; date: string; account_id: string | null }
+interface BudgetRow { id: string; category_id: string; limit_amount: number }
+interface Category { id: string; name: string; icon: string | null }
 
 export default function Dashboard(): JSX.Element {
-  const [accounts, setAccounts] = useState<any[]>([])
-  const [transactions, setTransactions] = useState<any[]>([])
-  const [budgets, setBudgets] = useState<any[]>([])
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [transactions, setTransactions] = useState<Tx[]>([])
+  const [budgets, setBudgets] = useState<BudgetRow[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
+  const [monthTx, setMonthTx] = useState<Tx[] & { category_id?: string | null }[]>([])
   const [newAccountName, setNewAccountName] = useState('')
   const [newAccountBalance, setNewAccountBalance] = useState('')
+  const [newAccountType, setNewAccountType] = useState('savings')
   const [loading, setLoading] = useState(true)
-  const [_currentUser, setCurrentUser] = useState<any>(null)
-  const [notification, setNotification] = useState('')
+  const { notice, notify } = useNotify()
 
-  useEffect(() => {
-    loadUserData()
-  }, [])
+  const monthStr = format(new Date(), 'yyyy-MM')
+
+  useEffect(() => { loadUserData() }, [])
 
   const loadUserData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setCurrentUser(user)
-        // Load accounts
-        const { data: accData } = await supabase
-          .from('accounts')
-          .select('*')
-          .eq('user_id', user.id)
-        setAccounts(accData || [])
-
-        // Load transactions
-        const { data: txData } = await supabase
-          .from('transactions')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('date', { ascending: false })
-        setTransactions(txData || [])
-
-        // Load budgets
-        const { data: budData } = await supabase
-          .from('budgets')
-          .select('*')
-          .eq('user_id', user.id)
-        setBudgets(budData || [])
-      }
-    } catch (error) {
-      console.error('Error loading data:', error)
+      if (!user) return
+      const [acc, tx, bud, cat, mtx] = await Promise.all([
+        supabase.from('accounts').select('*').eq('user_id', user.id).order('created_at'),
+        supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false }).limit(8),
+        supabase.from('budgets').select('*').eq('user_id', user.id).eq('month', monthStr),
+        supabase.from('categories').select('id,name,icon').eq('user_id', user.id),
+        supabase.from('transactions').select('id,description,amount,type,date,account_id,category_id')
+          .eq('user_id', user.id).gte('date', `${monthStr}-01`).lte('date', `${monthStr}-31`),
+      ])
+      if (acc.error) throw acc.error
+      setAccounts((acc.data || []).map(a => ({ ...a, balance: Number(a.balance) })))
+      setTransactions((tx.data || []).map(t => ({ ...t, amount: Number(t.amount) })))
+      setBudgets((bud.data || []).map(b => ({ ...b, limit_amount: Number(b.limit_amount) })))
+      setCategories(cat.data || [])
+      setMonthTx((mtx.data || []).map(t => ({ ...t, amount: Number(t.amount) })))
+    } catch (e: any) {
+      notify(e.message || 'Failed to load data', false)
     } finally {
       setLoading(false)
     }
   }
 
   const addAccount = async () => {
-    if (!newAccountName || !newAccountBalance) {
-      setNotification('Please fill in all fields')
-      setTimeout(() => setNotification(''), 3000)
-      return
-    }
-
+    if (!newAccountName.trim()) return notify('Enter an account name', false)
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-
-      const { data, error } = await supabase
-        .from('accounts')
-        .insert({
-          user_id: user.id,
-          name: newAccountName,
-          balance: parseFloat(newAccountBalance),
-          type: 'Bank'
-        })
-        .select()
-
+      const { data, error } = await supabase.from('accounts').insert({
+        user_id: user.id,
+        name: newAccountName.trim(),
+        balance: parseFloat(newAccountBalance) || 0,
+        type: newAccountType,
+      }).select()
       if (error) throw error
-      if (data) {
-        setAccounts([...accounts, data[0]])
-        setNewAccountName('')
-        setNewAccountBalance('')
-        setNotification('Account added successfully!')
-        setTimeout(() => setNotification(''), 3000)
-      }
-    } catch (error) {
-      console.error('Error adding account:', error)
-      setNotification('Failed to add account')
-      setTimeout(() => setNotification(''), 3000)
+      setAccounts([...accounts, { ...data[0], balance: Number(data[0].balance) }])
+      setNewAccountName('')
+      setNewAccountBalance('')
+      notify('Account added')
+    } catch (e: any) {
+      notify(e.message || 'Failed to add account', false)
     }
   }
 
   const deleteAccount = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('accounts')
-        .delete()
-        .eq('id', id)
-
+      const { error, count } = await supabase.from('accounts').delete({ count: 'exact' }).eq('id', id)
       if (error) throw error
+      if (!count) throw new Error('Delete blocked — run supabase-setup.sql')
       setAccounts(accounts.filter(a => a.id !== id))
-      setNotification('Account deleted successfully!')
-      setTimeout(() => setNotification(''), 3000)
-    } catch (error) {
-      console.error('Error deleting account:', error)
-      setNotification('Failed to delete account')
-      setTimeout(() => setNotification(''), 3000)
+      notify('Account deleted')
+    } catch (e: any) {
+      notify(e.message || 'Failed to delete', false)
     }
   }
 
   const deleteTransaction = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('transactions')
-        .delete()
-        .eq('id', id)
-
+      const { error, count } = await supabase.from('transactions').delete({ count: 'exact' }).eq('id', id)
       if (error) throw error
+      if (!count) throw new Error('Delete blocked — run supabase-setup.sql')
       setTransactions(transactions.filter(t => t.id !== id))
-      setNotification('Transaction deleted!')
-      setTimeout(() => setNotification(''), 3000)
-    } catch (error) {
-      console.error('Error deleting transaction:', error)
+      notify('Transaction deleted')
+    } catch (e: any) {
+      notify(e.message || 'Failed to delete', false)
     }
   }
 
   if (loading) {
-    return (
-      <div className="p-4 md:p-6 flex items-center justify-center min-h-screen">
-        <p className="text-gray-600">Loading your data...</p>
-      </div>
-    )
+    return <div className={ui.page}><p className={ui.empty}>Loading your data...</p></div>
   }
 
-  const totalBalance = accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0)
-  const totalSpent = transactions.filter(t => t.amount < 0).reduce((sum, t) => sum + Math.abs(t.amount), 0)
-  const totalIncome = transactions.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0)
+  const totalBalance = accounts.reduce((s, a) => s + a.balance, 0)
+  const monthIncome = monthTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
+  const monthSpent = monthTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
+
+  const budgetRows = budgets.map(b => {
+    const cat = categories.find(c => c.id === b.category_id)
+    const spent = (monthTx as any[])
+      .filter(t => t.category_id === b.category_id && t.type === 'expense')
+      .reduce((s, t) => s + t.amount, 0)
+    return { id: b.id, name: cat?.name || 'Category', icon: cat?.icon, spent, limit: b.limit_amount }
+  })
 
   return (
-    <div className="p-2 md:p-4 space-y-2 md:space-y-3 max-w-7xl mx-auto">
-      {notification && (
-        <div className="p-2 bg-green-50 border border-green-200 rounded text-green-700 text-xs">
-          {notification}
-        </div>
-      )}
+    <div className={ui.page}>
+      <Toast notice={notice} />
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3">
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded p-3">
-          <p className="text-xs text-gray-600 mb-0.5">Total Balance</p>
-          <p className="text-lg md:text-xl font-semibold text-blue-900">{formatCurrency(totalBalance)}</p>
+      {/* Summary cards */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/40 dark:to-blue-900/20 rounded-lg p-2.5">
+          <p className={ui.sub}>Balance</p>
+          <p className="text-sm md:text-lg font-semibold text-blue-900 dark:text-blue-300 truncate">{formatCurrency(totalBalance)}</p>
         </div>
-        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded p-3">
-          <p className="text-xs text-gray-600 mb-0.5">Income</p>
-          <p className="text-lg md:text-xl font-semibold text-green-900">{formatCurrency(totalIncome)}</p>
+        <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/40 dark:to-green-900/20 rounded-lg p-2.5">
+          <p className={ui.sub}>Income ({format(new Date(), 'MMM')})</p>
+          <p className="text-sm md:text-lg font-semibold text-green-900 dark:text-green-300 truncate">{formatCurrency(monthIncome)}</p>
         </div>
-        <div className="bg-gradient-to-br from-red-50 to-red-100 rounded p-3">
-          <p className="text-xs text-gray-600 mb-0.5">Spent</p>
-          <p className="text-lg md:text-xl font-semibold text-red-900">{formatCurrency(totalSpent)}</p>
+        <div className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/40 dark:to-red-900/20 rounded-lg p-2.5">
+          <p className={ui.sub}>Spent ({format(new Date(), 'MMM')})</p>
+          <p className="text-sm md:text-lg font-semibold text-red-900 dark:text-red-300 truncate">{formatCurrency(monthSpent)}</p>
         </div>
       </div>
 
-      {/* Accounts Section */}
-      <div className="bg-white rounded border border-gray-200 p-3">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-gray-900">Accounts</h2>
-          <button className="p-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
-            <Plus className="w-3 h-3" />
-          </button>
+      {/* Accounts */}
+      <div className={ui.card}>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className={ui.h2}>Accounts</h2>
+          <Link to="/accounts" className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5">
+            Manage <ArrowRight className="w-3 h-3" />
+          </Link>
         </div>
 
-        <div className="space-y-1 mb-3">
+        <div className="space-y-1.5 mb-2.5">
           {accounts.length === 0 ? (
-            <p className="text-xs text-gray-600 py-2">No accounts yet. Add one below!</p>
+            <p className={ui.empty}>No accounts yet — add your first one below.</p>
           ) : (
             accounts.map(account => (
-              <div key={account.id} className="flex items-center justify-between p-2 bg-gray-50 rounded hover:bg-gray-100 transition">
+              <div key={account.id} className={ui.row}>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-gray-900 truncate">{account.name}</p>
-                  <p className="text-xs text-gray-600">{account.type}</p>
+                  <p className={`${ui.strong} truncate`}>{account.name}</p>
+                  <p className={`${ui.sub} capitalize`}>{account.type}</p>
                 </div>
-                <p className="text-xs font-medium text-gray-900 mr-2 whitespace-nowrap">{formatCurrency(account.balance || 0)}</p>
-                <button
-                  onClick={() => deleteAccount(account.id)}
-                  className="p-1 text-red-600 hover:bg-red-50 rounded transition"
-                >
-                  <Trash2 className="w-3 h-3" />
+                <p className={`${ui.strong} mr-2 whitespace-nowrap`}>{formatCurrency(account.balance)}</p>
+                <button onClick={() => deleteAccount(account.id)} aria-label={`Delete ${account.name}`} className={ui.iconBtnDanger}>
+                  <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             ))
@@ -192,44 +166,52 @@ export default function Dashboard(): JSX.Element {
           <input
             type="text"
             value={newAccountName}
-            onChange={(e) => setNewAccountName(e.target.value)}
+            onChange={e => setNewAccountName(e.target.value)}
             placeholder="Name"
-            className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className={ui.input}
           />
+          <select value={newAccountType} onChange={e => setNewAccountType(e.target.value)} className={`${ui.select} w-28`}>
+            <option value="savings">Savings</option>
+            <option value="checking">Checking</option>
+            <option value="credit">Credit</option>
+            <option value="cash">Cash</option>
+          </select>
           <input
             type="number"
             value={newAccountBalance}
-            onChange={(e) => setNewAccountBalance(e.target.value)}
+            onChange={e => setNewAccountBalance(e.target.value)}
             placeholder="Balance"
-            className="w-20 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className={`${ui.input} w-24`}
           />
-          <button
-            onClick={addAccount}
-            className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition"
-          >
-            Add
+          <button onClick={addAccount} className={ui.btnPrimary}>
+            <Plus className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Budget Overview */}
-      <div className="bg-white rounded border border-gray-200 p-3">
-        <h2 className="text-sm font-semibold text-gray-900 mb-2">Monthly Budget</h2>
+      {/* Budget snapshot */}
+      <div className={ui.card}>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className={ui.h2}>Budget — {format(new Date(), 'MMMM')}</h2>
+          <Link to="/budget" className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5">
+            Details <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
         <div className="space-y-2">
-          {budgets.length === 0 ? (
-            <p className="text-xs text-gray-600 py-2">No budgets set yet</p>
+          {budgetRows.length === 0 ? (
+            <p className={ui.empty}>No budgets for this month — set limits on the Budget page.</p>
           ) : (
-            budgets.map(budget => {
-              const percentage = (budget.spent / budget.limit) * 100
-              const color = percentage > 80 ? 'bg-red-500' : percentage > 50 ? 'bg-yellow-500' : 'bg-green-500'
+            budgetRows.map(b => {
+              const pct = b.limit > 0 ? (b.spent / b.limit) * 100 : 0
+              const color = pct > 100 ? 'bg-red-500' : pct > 75 ? 'bg-yellow-500' : 'bg-green-500'
               return (
-                <div key={budget.id} className="space-y-0.5">
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs font-medium text-gray-900">{budget.category}</p>
-                    <p className="text-xs text-gray-600">{formatCurrency(budget.spent)} / {formatCurrency(budget.limit)}</p>
+                <div key={b.id}>
+                  <div className="flex justify-between items-center mb-0.5">
+                    <p className={ui.strong}>{b.icon ? `${b.icon} ` : ''}{b.name}</p>
+                    <p className={ui.sub}>{formatCurrency(b.spent)} / {formatCurrency(b.limit)}</p>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-1.5">
-                    <div className={`h-1.5 rounded-full ${color}`} style={{ width: `${Math.min(percentage, 100)}%` }}></div>
+                  <div className={ui.progressTrack}>
+                    <div className={`h-1.5 rounded-full ${color}`} style={{ width: `${Math.min(pct, 100)}%` }} />
                   </div>
                 </div>
               )
@@ -238,27 +220,31 @@ export default function Dashboard(): JSX.Element {
         </div>
       </div>
 
-      {/* Recent Transactions */}
-      <div className="bg-white rounded border border-gray-200 p-3">
-        <h2 className="text-sm font-semibold text-gray-900 mb-2">Recent Transactions</h2>
-        <div className="space-y-1">
+      {/* Recent transactions */}
+      <div className={ui.card}>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className={ui.h2}>Recent Transactions</h2>
+          <Link to="/transactions" className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5">
+            View all <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
+        <div className="space-y-1.5">
           {transactions.length === 0 ? (
-            <p className="text-xs text-gray-600 py-2">No transactions yet</p>
+            <p className={ui.empty}>No transactions yet — add them on the Transactions page.</p>
           ) : (
-            transactions.slice(0, 10).map(transaction => (
-              <div key={transaction.id} className="flex items-center justify-between p-2 bg-gray-50 rounded hover:bg-gray-100 transition">
+            transactions.map(tx => (
+              <div key={tx.id} className={ui.row}>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-gray-900 truncate">{transaction.description}</p>
-                  <p className="text-xs text-gray-600">{transaction.date} • {transaction.category}</p>
+                  <p className={`${ui.strong} truncate`}>{tx.description}</p>
+                  <p className={ui.sub}>{new Date(tx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
                 </div>
-                <p className={`text-xs font-medium ml-1 whitespace-nowrap ${transaction.amount > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {transaction.amount > 0 ? '+' : ''} {formatCurrency(Math.abs(transaction.amount))}
+                <p className={`text-xs font-semibold mx-2 whitespace-nowrap ${
+                  tx.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                }`}>
+                  {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
                 </p>
-                <button
-                  onClick={() => deleteTransaction(transaction.id)}
-                  className="p-1 ml-1 text-red-600 hover:bg-red-50 rounded transition"
-                >
-                  <Trash2 className="w-3 h-3" />
+                <button onClick={() => deleteTransaction(tx.id)} aria-label="Delete transaction" className={ui.iconBtnDanger}>
+                  <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             ))
@@ -266,11 +252,11 @@ export default function Dashboard(): JSX.Element {
         </div>
       </div>
 
-      {/* Footer Attribution */}
-      <div className="text-center pt-2 border-t border-gray-200">
-        <p className="text-xs text-gray-500">
+      {/* Footer attribution */}
+      <div className="text-center pt-2 border-t border-gray-200 dark:border-gray-700">
+        <p className={ui.sub}>
           Developed by{' '}
-          <a href="https://ashishbaboo.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+          <a href="https://ashishbaboo.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
             Ashish Baboo
           </a>
         </p>

@@ -27,3 +27,6 @@ dist-ssr/
 *.local
 .playwright-mcp/
 .claude/
+playwright-report/
+test-results/
+screenshots/
