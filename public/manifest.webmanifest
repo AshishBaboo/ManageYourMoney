@@ -1,7 +1,7 @@
 {
   "name": "Manage Your Money",
   "short_name": "MYM",
-  "description": "Budget tracking, categories, goals — your money at a glance.",
+  "description": "Budget tracking, categories, goals - your money at a glance.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f9fafb",
