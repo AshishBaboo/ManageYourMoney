@@ -189,16 +189,16 @@ export default function Dashboard(): JSX.Element {
           )}
         </div>
 
-        <div className="flex gap-1.5">
+        <div className="flex flex-wrap gap-1.5">
           <input
             type="text"
             value={newAccountName}
             onChange={e => setNewAccountName(e.target.value)}
             placeholder="Name"
-            className={ui.input}
+            className={`${ui.input} min-w-0 flex-1 basis-full sm:basis-auto`}
           />
           <Select
-            className="w-28"
+            className="w-28 shrink-0"
             value={newAccountType}
             onChange={setNewAccountType}
             options={[
@@ -212,7 +212,7 @@ export default function Dashboard(): JSX.Element {
             value={newAccountBalance}
             onChange={setNewAccountBalance}
             placeholder="Balance"
-            className="w-24"
+            className="flex-1 min-w-0"
           />
           <button onClick={() => run(addAccount)} disabled={busy} className={ui.btnPrimary}>
             <Plus className="w-3.5 h-3.5" />

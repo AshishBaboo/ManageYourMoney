@@ -425,14 +425,14 @@ export default function Budget(): JSX.Element {
     <div className="mt-1.5 p-2 rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-900/20 space-y-1.5">
       <div className="flex gap-1.5">
         <AmountInput
-          className="flex-1"
+          className="flex-1 min-w-0"
           placeholder={`Amount (${currencySymbol()})`}
           value={quickAdd.amount}
           onChange={v => setQuickAdd({ ...quickAdd, amount: v })}
           autoFocus
         />
         <input
-          className={ui.input}
+          className={`${ui.input} !w-[8.5rem] shrink-0`}
           type="date"
           value={quickAdd.date}
           onChange={e => setQuickAdd({ ...quickAdd, date: e.target.value })}
@@ -598,9 +598,9 @@ export default function Budget(): JSX.Element {
 
             {subForm?.parentId === cat.id ? (
               <div className="flex gap-1.5">
-                <input className={ui.input} placeholder="Subcategory name" value={subForm.name}
-                  onChange={e => setSubForm({ ...subForm, name: e.target.value })} autoFocus />
-                <AmountInput className="w-24" placeholder={currencySymbol()} value={subForm.amount}
+                <input className={`${ui.input} min-w-0 flex-1`} placeholder="Subcategory name" value={subForm.name}
+                  onChange={e => setSubForm(prev => prev ? { ...prev, name: e.target.value } : prev)} autoFocus />
+                <AmountInput className="w-24 shrink-0" placeholder={currencySymbol()} value={subForm.amount}
                   onChange={v => setSubForm(prev => prev ? { ...prev, amount: v } : prev)} />
                 <button
                   onClick={() => run(async () => { if (await addCategory(cat.id, subForm.name, cat.type, subForm.amount)) setSubForm(null) })}

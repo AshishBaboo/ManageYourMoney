@@ -303,16 +303,16 @@ export default function Accounts(): JSX.Element {
               if (editing?.id === account.id) {
                 return (
                   <div key={account.id} className="p-2 rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-900/20 space-y-1.5">
-                    <div className="flex gap-1.5">
-                      <input className={ui.input} value={editing.name} placeholder="Account name"
-                        onChange={e => setEditing({ ...editing, name: e.target.value })} autoFocus />
+                    <div className="flex flex-wrap gap-1.5">
+                      <input className={`${ui.input} min-w-0 flex-1 basis-full sm:basis-auto`} value={editing.name} placeholder="Account name"
+                        onChange={e => setEditing(prev => prev ? { ...prev, name: e.target.value } : prev)} autoFocus />
                       <Select
-                        className="w-28"
+                        className="w-28 shrink-0"
                         value={editing.type}
-                        onChange={v => setEditing({ ...editing, type: v })}
+                        onChange={v => setEditing(prev => prev ? { ...prev, type: v } : prev)}
                         options={TYPE_OPTIONS}
                       />
-                      <AmountInput className="w-28" value={editing.balance} placeholder="Balance"
+                      <AmountInput className="flex-1 min-w-0" value={editing.balance} placeholder="Balance"
                         onChange={v => setEditing(prev => prev ? { ...prev, balance: v } : prev)} />
                     </div>
                     <div className="flex gap-1.5">

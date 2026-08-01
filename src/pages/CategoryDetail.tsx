@@ -289,9 +289,9 @@ export default function CategoryDetail(): JSX.Element {
       <input className={ui.input} value={editingTx.description} placeholder="Description"
         onChange={e => setEditingTx({ ...editingTx, description: e.target.value })} />
       <div className="flex gap-1.5">
-        <AmountInput className="flex-1" value={editingTx.amount} placeholder="Amount"
+        <AmountInput className="flex-1 min-w-0" value={editingTx.amount} placeholder="Amount"
           onChange={v => setEditingTx(prev => prev ? { ...prev, amount: v } : prev)} />
-        <input className={ui.input} type="date" value={editingTx.date}
+        <input className={`${ui.input} !w-[8.5rem] shrink-0`} type="date" value={editingTx.date}
           onChange={e => setEditingTx({ ...editingTx, date: e.target.value })} />
       </div>
       <div className="flex gap-1.5">
@@ -320,9 +320,9 @@ export default function CategoryDetail(): JSX.Element {
   const renderQuickAdd = (nodeId: string, nodeName: string) => quickAdd?.categoryId === nodeId ? (
     <div className="mt-1.5 p-2 rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-900/20 space-y-1.5">
       <div className="flex gap-1.5">
-        <AmountInput className="flex-1" placeholder={`Amount (${currencySymbol()})`} value={quickAdd.amount}
+        <AmountInput className="flex-1 min-w-0" placeholder={`Amount (${currencySymbol()})`} value={quickAdd.amount}
           onChange={v => setQuickAdd(prev => prev ? { ...prev, amount: v } : prev)} autoFocus />
-        <input className={ui.input} type="date" value={quickAdd.date}
+        <input className={`${ui.input} !w-[8.5rem] shrink-0`} type="date" value={quickAdd.date}
           onChange={e => setQuickAdd({ ...quickAdd, date: e.target.value })} />
       </div>
       <div className="flex gap-1.5">
@@ -438,9 +438,9 @@ export default function CategoryDetail(): JSX.Element {
         {renderQuickAdd(category.id, category.name)}
         {subForm && (
           <div className="flex gap-1.5 mt-1.5">
-            <input className={ui.input} placeholder="Subcategory name" value={subForm.name}
-              onChange={e => setSubForm({ ...subForm, name: e.target.value })} autoFocus />
-            <AmountInput className="w-28" placeholder={`${currencySymbol()} amount`} value={subForm.amount}
+            <input className={`${ui.input} min-w-0 flex-1`} placeholder="Subcategory name" value={subForm.name}
+              onChange={e => setSubForm(prev => prev ? { ...prev, name: e.target.value } : prev)} autoFocus />
+            <AmountInput className="w-24 shrink-0" placeholder={currencySymbol()} value={subForm.amount}
               onChange={v => setSubForm(prev => prev ? { ...prev, amount: v } : prev)} />
             <button onClick={() => run(addSub)} disabled={busy} className={ui.btnPrimary}>{busy ? 'Saving...' : 'Add'}</button>
           </div>

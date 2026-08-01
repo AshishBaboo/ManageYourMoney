@@ -433,10 +433,10 @@ export default function Transactions(): JSX.Element {
                     <input className={ui.input} value={editingTx.description} placeholder="Description"
                       onChange={e => setEditingTx({ ...editingTx, description: e.target.value })} autoFocus />
                     <div className="flex gap-1.5">
-                      <AmountInput className="flex-1" value={editingTx.amount} placeholder="Amount"
-                        onChange={v => setEditingTx({ ...editingTx, amount: v })} />
-                      <input className={ui.input} type="date" value={editingTx.date}
-                        onChange={e => setEditingTx({ ...editingTx, date: e.target.value })} />
+                      <AmountInput className="flex-1 min-w-0" value={editingTx.amount} placeholder="Amount"
+                        onChange={v => setEditingTx(prev => prev ? { ...prev, amount: v } : prev)} />
+                      <input className={`${ui.input} !w-[8.5rem] shrink-0`} type="date" value={editingTx.date}
+                        onChange={e => setEditingTx(prev => prev ? { ...prev, date: e.target.value } : prev)} />
                     </div>
                     <div className="flex gap-1.5">
                       <button onClick={() => run(saveTxEdit)} disabled={busy} className={ui.btnPrimary}>

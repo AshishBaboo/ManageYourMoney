@@ -230,10 +230,10 @@ export default function Goals(): JSX.Element {
                     <input className={ui.input} value={editing.name} placeholder="Goal name"
                       onChange={e => setEditing({ ...editing, name: e.target.value })} autoFocus />
                     <div className="flex gap-1.5">
-                      <AmountInput className="flex-1" value={editing.target} placeholder="Target"
-                        onChange={v => setEditing({ ...editing, target: v })} />
-                      <input className={ui.input} type="date" value={editing.deadline}
-                        onChange={e => setEditing({ ...editing, deadline: e.target.value })} />
+                      <AmountInput className="flex-1 min-w-0" value={editing.target} placeholder="Target"
+                        onChange={v => setEditing(prev => prev ? { ...prev, target: v } : prev)} />
+                      <input className={`${ui.input} !w-[8.5rem] shrink-0`} type="date" value={editing.deadline}
+                        onChange={e => setEditing(prev => prev ? { ...prev, deadline: e.target.value } : prev)} />
                     </div>
                     <div className="flex gap-1.5">
                       <button onClick={() => run(saveEdit)} disabled={busy} className={ui.btnPrimary}>
