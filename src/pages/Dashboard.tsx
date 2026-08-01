@@ -11,6 +11,7 @@ import Select from '../components/Select'
 import { useConfirm } from '../components/ConfirmDialog'
 import { useBusy } from '../lib/useBusy'
 import AmountInput from '../components/AmountInput'
+import { formatTxDate } from '../lib/tx'
 
 interface Account { id: string; name: string; type: string; balance: number }
 interface Tx { id: string; description: string; amount: number; type: string; date: string; account_id: string | null }
@@ -269,7 +270,7 @@ export default function Dashboard(): JSX.Element {
               <div key={tx.id} className={ui.row}>
                 <div className="flex-1 min-w-0">
                   <p className={`${ui.strong} truncate`}>{tx.description}</p>
-                  <p className={ui.sub}>{new Date(tx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+                  <p className={ui.sub}>{formatTxDate(tx)}</p>
                 </div>
                 <p className={`text-xs font-semibold mx-2 whitespace-nowrap ${
                   tx.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'

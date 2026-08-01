@@ -8,6 +8,8 @@ import Loader from '../components/Loader'
 import { useConfirm } from '../components/ConfirmDialog'
 import { useBusy } from '../lib/useBusy'
 import AmountInput from '../components/AmountInput'
+import DateInput from '../components/DateInput'
+import { formatDate } from '../lib/dateFormat'
 
 interface Goal {
   id: string
@@ -205,8 +207,8 @@ export default function Goals(): JSX.Element {
             </div>
             <div>
               <label className={ui.label}>Deadline</label>
-              <input className={ui.input} type="date" value={form.deadline}
-                onChange={e => setForm({ ...form, deadline: e.target.value })} />
+              <DateInput className="w-full" value={form.deadline}
+                onChange={v => setForm({ ...form, deadline: v })} />
             </div>
           </div>
           <button onClick={() => run(() => addGoal())} disabled={busy} className={`${ui.btnPrimary} mt-2 w-full md:w-auto`}>{busy ? 'Saving...' : 'Create Goal'}</button>
@@ -232,8 +234,8 @@ export default function Goals(): JSX.Element {
                     <div className="flex gap-1.5">
                       <AmountInput className="flex-1 min-w-0" value={editing.target} placeholder="Target"
                         onChange={v => setEditing(prev => prev ? { ...prev, target: v } : prev)} />
-                      <input className={`${ui.input} !w-[8.5rem] shrink-0`} type="date" value={editing.deadline}
-                        onChange={e => setEditing(prev => prev ? { ...prev, deadline: e.target.value } : prev)} />
+                      <DateInput className="w-[8.5rem] shrink-0" value={editing.deadline}
+                        onChange={v => setEditing(prev => prev ? { ...prev, deadline: v } : prev)} />
                     </div>
                     <div className="flex gap-1.5">
                       <button onClick={() => run(saveEdit)} disabled={busy} className={ui.btnPrimary}>
@@ -248,7 +250,9 @@ export default function Goals(): JSX.Element {
                     <span className="text-xl">{goal.icon || '🎯'}</span>
                     <div className="min-w-0">
                       <p className={`${ui.strong} truncate`}>{goal.name}</p>
-                      <p className={ui.sub}>{daysLeft > 0 ? `${daysLeft} days left` : 'Deadline passed'}</p>
+                      <p className={ui.sub}>
+                        {formatDate(goal.deadline)} • {daysLeft > 0 ? `${daysLeft} days left` : 'passed'}
+                      </p>
                     </div>
                   </div>
                   <div className="flex gap-0.5">

@@ -12,6 +12,7 @@ import Loader from '../components/Loader'
 import AutocompleteInput from '../components/AutocompleteInput'
 import Select from '../components/Select'
 import AmountInput from '../components/AmountInput'
+import DateInput from '../components/DateInput'
 import { useConfirm } from '../components/ConfirmDialog'
 import { useBusy } from '../lib/useBusy'
 import { insertTransaction, occurredAtFor } from '../lib/tx'
@@ -431,11 +432,10 @@ export default function Budget(): JSX.Element {
           onChange={v => setQuickAdd({ ...quickAdd, amount: v })}
           autoFocus
         />
-        <input
-          className={`${ui.input} !w-[8.5rem] shrink-0`}
-          type="date"
+        <DateInput
+          className="w-[8.5rem] shrink-0"
           value={quickAdd.date}
-          onChange={e => setQuickAdd({ ...quickAdd, date: e.target.value })}
+          onChange={v => setQuickAdd(prev => prev ? { ...prev, date: v } : prev)}
         />
       </div>
       <div className="flex gap-1.5">

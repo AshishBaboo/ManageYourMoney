@@ -10,6 +10,7 @@ import Loader from '../components/Loader'
 import AutocompleteInput from '../components/AutocompleteInput'
 import Select from '../components/Select'
 import AmountInput from '../components/AmountInput'
+import DateInput from '../components/DateInput'
 import { useConfirm } from '../components/ConfirmDialog'
 import { useBusy } from '../lib/useBusy'
 import { insertTransaction, updateTransaction, occurredAtFor, formatTxDate, sortTx } from '../lib/tx'
@@ -368,8 +369,8 @@ export default function Transactions(): JSX.Element {
                 </div>
                 <div>
                   <label className={ui.label}>Date</label>
-                  <input className={ui.input} type="date" value={form.date}
-                    onChange={e => setForm({ ...form, date: e.target.value })} />
+                  <DateInput className="w-full" value={form.date}
+                    onChange={v => setForm({ ...form, date: v })} />
                 </div>
               </div>
               <div className="flex gap-2 mt-2">
@@ -435,8 +436,8 @@ export default function Transactions(): JSX.Element {
                     <div className="flex gap-1.5">
                       <AmountInput className="flex-1 min-w-0" value={editingTx.amount} placeholder="Amount"
                         onChange={v => setEditingTx(prev => prev ? { ...prev, amount: v } : prev)} />
-                      <input className={`${ui.input} !w-[8.5rem] shrink-0`} type="date" value={editingTx.date}
-                        onChange={e => setEditingTx(prev => prev ? { ...prev, date: e.target.value } : prev)} />
+                      <DateInput className="w-[8.5rem] shrink-0" value={editingTx.date}
+                        onChange={v => setEditingTx(prev => prev ? { ...prev, date: v } : prev)} />
                     </div>
                     <div className="flex gap-1.5">
                       <button onClick={() => run(saveTxEdit)} disabled={busy} className={ui.btnPrimary}>

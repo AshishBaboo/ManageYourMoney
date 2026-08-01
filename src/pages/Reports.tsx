@@ -5,6 +5,7 @@ import { formatCurrency } from '../lib/currency'
 import { ui } from '../lib/ui'
 import { Toast, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
+import DateInput from '../components/DateInput'
 import { formatTxDate, sortTx } from '../lib/tx'
 
 interface Category { id: string; name: string; type: string; icon: string | null; parent_id: string | null; color: string | null }
@@ -212,11 +213,11 @@ export default function Reports(): JSX.Element {
           <div className="flex gap-2 mt-2">
             <div className="flex-1">
               <label className={ui.label}>From</label>
-              <input className={ui.input} type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} />
+              <DateInput className="w-full" value={customFrom} onChange={setCustomFrom} />
             </div>
             <div className="flex-1">
               <label className={ui.label}>To</label>
-              <input className={ui.input} type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} />
+              <DateInput className="w-full" value={customTo} onChange={setCustomTo} />
             </div>
           </div>
         )}

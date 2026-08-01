@@ -4,6 +4,7 @@ import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { CURRENCIES, getCurrency, setCurrency } from '../lib/currency'
 import { getTheme, applyTheme, Theme } from '../lib/theme'
+import { DATE_FORMATS, getDateFormat, setDateFormat } from '../lib/dateFormat'
 import { displayName, initials, savePrefToDb } from '../lib/userData'
 import { ui } from '../lib/ui'
 import { Toast, useNotify } from '../components/Toast'
@@ -14,6 +15,7 @@ export default function Settings(): JSX.Element {
   const [fullName, setFullName] = useState('')
   const [theme, setThemeState] = useState<Theme>(getTheme())
   const [currency, setCurrencyState] = useState(getCurrency())
+  const [dateFmt, setDateFmtState] = useState(getDateFormat())
   const [newPassword, setNewPassword] = useState('')
   const [saving, setSaving] = useState(false)
   const { notice, notify } = useNotify()
@@ -48,6 +50,12 @@ export default function Settings(): JSX.Element {
     setThemeState(t)
     if (user) savePrefToDb(user.id, { theme: t })
     notify(`${t === 'dark' ? 'Dark' : 'Light'} theme saved`)
+  }
+
+  const changeDateFormat = (pattern: string) => {
+    setDateFormat(pattern)
+    setDateFmtState(pattern)
+    notify(`Dates now show as ${DATE_FORMATS[pattern].label.split('  ')[0]}`)
   }
 
   const changeCurrency = (code: string) => {
@@ -146,6 +154,15 @@ export default function Settings(): JSX.Element {
               options={Object.entries(CURRENCIES).map(([code, c]) => ({ value: code, label: c.label }))}
             />
             <p className={`${ui.sub} mt-1`}>Applies everywhere amounts are shown. Default is INR (₹).</p>
+          </div>
+          <div>
+            <label className={ui.label}>Date Format</label>
+            <Select
+              value={dateFmt}
+              onChange={changeDateFormat}
+              options={Object.entries(DATE_FORMATS).map(([pattern, d]) => ({ value: pattern, label: d.label }))}
+            />
+            <p className={`${ui.sub} mt-1`}>Applies to every date in the app. Default is DD/MM/YYYY.</p>
           </div>
         </div>
       </div>

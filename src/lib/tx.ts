@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { format } from 'date-fns'
+import { formatDate, formatDateTime } from './dateFormat'
 
 // occurred_at for a chosen date: now if today, else noon of that day
 export function occurredAtFor(dateStr: string): string {
@@ -32,9 +32,7 @@ export function txTime(t: { occurred_at?: string | null; date: string }): number
 }
 
 export function formatTxDate(t: { occurred_at?: string | null; date: string }): string {
-  return t.occurred_at
-    ? format(new Date(t.occurred_at), 'dd-MM-yyyy hh:mm a')
-    : format(new Date(`${t.date}T12:00:00`), 'dd-MM-yyyy')
+  return t.occurred_at ? formatDateTime(t.occurred_at) : formatDate(t.date)
 }
 
 export function sortTx<T extends { occurred_at?: string | null; date: string }>(list: T[]): T[] {

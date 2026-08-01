@@ -12,6 +12,7 @@ import Loader from '../components/Loader'
 import AutocompleteInput from '../components/AutocompleteInput'
 import Select from '../components/Select'
 import AmountInput from '../components/AmountInput'
+import DateInput from '../components/DateInput'
 import { useConfirm } from '../components/ConfirmDialog'
 import { useBusy } from '../lib/useBusy'
 import { insertTransaction, updateTransaction, occurredAtFor, formatTxDate, sortTx } from '../lib/tx'
@@ -291,8 +292,8 @@ export default function CategoryDetail(): JSX.Element {
       <div className="flex gap-1.5">
         <AmountInput className="flex-1 min-w-0" value={editingTx.amount} placeholder="Amount"
           onChange={v => setEditingTx(prev => prev ? { ...prev, amount: v } : prev)} />
-        <input className={`${ui.input} !w-[8.5rem] shrink-0`} type="date" value={editingTx.date}
-          onChange={e => setEditingTx({ ...editingTx, date: e.target.value })} />
+        <DateInput className="w-[8.5rem] shrink-0" value={editingTx.date}
+          onChange={v => setEditingTx(prev => prev ? { ...prev, date: v } : prev)} />
       </div>
       <div className="flex gap-1.5">
         <button onClick={() => run(saveTxEdit)} disabled={busy} className={ui.btnPrimary}><span className="flex items-center gap-1"><Check className="w-3 h-3" /> {busy ? 'Saving...' : 'Save'}</span></button>
@@ -322,8 +323,8 @@ export default function CategoryDetail(): JSX.Element {
       <div className="flex gap-1.5">
         <AmountInput className="flex-1 min-w-0" placeholder={`Amount (${currencySymbol()})`} value={quickAdd.amount}
           onChange={v => setQuickAdd(prev => prev ? { ...prev, amount: v } : prev)} autoFocus />
-        <input className={`${ui.input} !w-[8.5rem] shrink-0`} type="date" value={quickAdd.date}
-          onChange={e => setQuickAdd({ ...quickAdd, date: e.target.value })} />
+        <DateInput className="w-[8.5rem] shrink-0" value={quickAdd.date}
+          onChange={v => setQuickAdd(prev => prev ? { ...prev, date: v } : prev)} />
       </div>
       <div className="flex gap-1.5">
         <div className="flex-1">
