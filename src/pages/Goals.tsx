@@ -7,6 +7,7 @@ import { Toast, BusyPill, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
 import { useConfirm } from '../components/ConfirmDialog'
 import { useBusy } from '../lib/useBusy'
+import AmountInput from '../components/AmountInput'
 
 interface Goal {
   id: string
@@ -199,8 +200,8 @@ export default function Goals(): JSX.Element {
             </div>
             <div>
               <label className={ui.label}>Target ({currencySymbol()})</label>
-              <input className={ui.input} type="number" placeholder="0" value={form.target}
-                onChange={e => setForm({ ...form, target: e.target.value })} />
+              <AmountInput className="w-full" placeholder="0" value={form.target}
+                onChange={v => setForm({ ...form, target: v })} />
             </div>
             <div>
               <label className={ui.label}>Deadline</label>
@@ -229,8 +230,8 @@ export default function Goals(): JSX.Element {
                     <input className={ui.input} value={editing.name} placeholder="Goal name"
                       onChange={e => setEditing({ ...editing, name: e.target.value })} autoFocus />
                     <div className="flex gap-1.5">
-                      <input className={ui.input} type="number" value={editing.target} placeholder="Target"
-                        onChange={e => setEditing({ ...editing, target: e.target.value })} />
+                      <AmountInput className="flex-1" value={editing.target} placeholder="Target"
+                        onChange={v => setEditing({ ...editing, target: v })} />
                       <input className={ui.input} type="date" value={editing.deadline}
                         onChange={e => setEditing({ ...editing, deadline: e.target.value })} />
                     </div>
@@ -277,12 +278,11 @@ export default function Goals(): JSX.Element {
 
                 {addingFunds?.goalId === goal.id ? (
                   <div className="flex gap-1.5 mt-2">
-                    <input
-                      className={ui.input}
-                      type="number"
+                    <AmountInput
+                      className="flex-1"
                       placeholder="Amount"
                       value={addingFunds.value}
-                      onChange={e => setAddingFunds({ ...addingFunds, value: e.target.value })}
+                      onChange={v => setAddingFunds({ ...addingFunds, value: v })}
                       autoFocus
                     />
                     <button onClick={() => run(addFunds)} disabled={busy} className={ui.btnPrimary}>{busy ? 'Saving...' : 'Add'}</button>

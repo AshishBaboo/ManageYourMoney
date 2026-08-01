@@ -11,6 +11,7 @@ import { Toast, BusyPill, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
 import AutocompleteInput from '../components/AutocompleteInput'
 import Select from '../components/Select'
+import AmountInput from '../components/AmountInput'
 import { useConfirm } from '../components/ConfirmDialog'
 import { useBusy } from '../lib/useBusy'
 import { insertTransaction, occurredAtFor } from '../lib/tx'
@@ -423,12 +424,11 @@ export default function Budget(): JSX.Element {
   const renderQuickAdd = (node: Category) => quickAdd?.categoryId === node.id ? (
     <div className="mt-1.5 p-2 rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-900/20 space-y-1.5">
       <div className="flex gap-1.5">
-        <input
-          className={ui.input}
-          type="number"
+        <AmountInput
+          className="flex-1"
           placeholder={`Amount (${currencySymbol()})`}
           value={quickAdd.amount}
-          onChange={e => setQuickAdd({ ...quickAdd, amount: e.target.value })}
+          onChange={v => setQuickAdd({ ...quickAdd, amount: v })}
           autoFocus
         />
         <input
@@ -466,12 +466,11 @@ export default function Budget(): JSX.Element {
 
   const renderLimitEditor = (node: Category) => editingLimit?.categoryId === node.id ? (
     <div className="flex gap-1.5 mt-1.5">
-      <input
-        className={ui.input}
-        type="number"
+      <AmountInput
+        className="flex-1"
         placeholder={`${node.type === 'income' ? 'Goal' : 'Budget'} for ${format(currentMonth, 'MMMM')}`}
         value={editingLimit.value}
-        onChange={e => setEditingLimit({ ...editingLimit, value: e.target.value })}
+        onChange={v => setEditingLimit(prev => prev ? { ...prev, value: v } : prev)}
         autoFocus
       />
       <button onClick={() => run(saveLimit)} disabled={busy} className={ui.btnPrimary}>{busy ? 'Saving...' : 'Set'}</button>
@@ -601,8 +600,8 @@ export default function Budget(): JSX.Element {
               <div className="flex gap-1.5">
                 <input className={ui.input} placeholder="Subcategory name" value={subForm.name}
                   onChange={e => setSubForm({ ...subForm, name: e.target.value })} autoFocus />
-                <input className={`${ui.input} !w-24`} type="number" placeholder={currencySymbol()} value={subForm.amount}
-                  onChange={e => setSubForm({ ...subForm, amount: e.target.value })} />
+                <AmountInput className="w-24" placeholder={currencySymbol()} value={subForm.amount}
+                  onChange={v => setSubForm(prev => prev ? { ...prev, amount: v } : prev)} />
                 <button
                   onClick={() => run(async () => { if (await addCategory(cat.id, subForm.name, cat.type, subForm.amount)) setSubForm(null) })}
                   disabled={busy}
@@ -906,8 +905,8 @@ export default function Budget(): JSX.Element {
                 { value: 'income', label: 'Income' },
               ]}
             />
-            <input className={ui.input} type="number" placeholder={`${catForm.type === 'income' ? 'Goal' : 'Budget'} for ${format(currentMonth, 'MMM')} (${currencySymbol()})`} value={catForm.amount}
-              onChange={e => setCatForm({ ...catForm, amount: e.target.value })} />
+            <AmountInput className="w-full" placeholder={`${catForm.type === 'income' ? 'Goal' : 'Budget'} for ${format(currentMonth, 'MMM')} (${currencySymbol()})`} value={catForm.amount}
+              onChange={v => setCatForm({ ...catForm, amount: v })} />
           </div>
           <button
             onClick={() => run(async () => {

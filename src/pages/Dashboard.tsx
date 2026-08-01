@@ -10,6 +10,7 @@ import Loader from '../components/Loader'
 import Select from '../components/Select'
 import { useConfirm } from '../components/ConfirmDialog'
 import { useBusy } from '../lib/useBusy'
+import AmountInput from '../components/AmountInput'
 
 interface Account { id: string; name: string; type: string; balance: number }
 interface Tx { id: string; description: string; amount: number; type: string; date: string; account_id: string | null }
@@ -207,12 +208,11 @@ export default function Dashboard(): JSX.Element {
               { value: 'cash', label: 'Cash' },
             ]}
           />
-          <input
-            type="number"
+          <AmountInput
             value={newAccountBalance}
-            onChange={e => setNewAccountBalance(e.target.value)}
+            onChange={setNewAccountBalance}
             placeholder="Balance"
-            className={`${ui.input} w-24`}
+            className="w-24"
           />
           <button onClick={() => run(addAccount)} disabled={busy} className={ui.btnPrimary}>
             <Plus className="w-3.5 h-3.5" />

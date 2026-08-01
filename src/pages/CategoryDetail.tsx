@@ -11,6 +11,7 @@ import { Toast, BusyPill, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
 import AutocompleteInput from '../components/AutocompleteInput'
 import Select from '../components/Select'
+import AmountInput from '../components/AmountInput'
 import { useConfirm } from '../components/ConfirmDialog'
 import { useBusy } from '../lib/useBusy'
 import { insertTransaction, updateTransaction, occurredAtFor, formatTxDate, sortTx } from '../lib/tx'
@@ -288,8 +289,8 @@ export default function CategoryDetail(): JSX.Element {
       <input className={ui.input} value={editingTx.description} placeholder="Description"
         onChange={e => setEditingTx({ ...editingTx, description: e.target.value })} />
       <div className="flex gap-1.5">
-        <input className={ui.input} type="number" value={editingTx.amount} placeholder="Amount"
-          onChange={e => setEditingTx({ ...editingTx, amount: e.target.value })} />
+        <AmountInput className="flex-1" value={editingTx.amount} placeholder="Amount"
+          onChange={v => setEditingTx(prev => prev ? { ...prev, amount: v } : prev)} />
         <input className={ui.input} type="date" value={editingTx.date}
           onChange={e => setEditingTx({ ...editingTx, date: e.target.value })} />
       </div>
@@ -319,8 +320,8 @@ export default function CategoryDetail(): JSX.Element {
   const renderQuickAdd = (nodeId: string, nodeName: string) => quickAdd?.categoryId === nodeId ? (
     <div className="mt-1.5 p-2 rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-900/20 space-y-1.5">
       <div className="flex gap-1.5">
-        <input className={ui.input} type="number" placeholder={`Amount (${currencySymbol()})`} value={quickAdd.amount}
-          onChange={e => setQuickAdd({ ...quickAdd, amount: e.target.value })} autoFocus />
+        <AmountInput className="flex-1" placeholder={`Amount (${currencySymbol()})`} value={quickAdd.amount}
+          onChange={v => setQuickAdd(prev => prev ? { ...prev, amount: v } : prev)} autoFocus />
         <input className={ui.input} type="date" value={quickAdd.date}
           onChange={e => setQuickAdd({ ...quickAdd, date: e.target.value })} />
       </div>
@@ -427,9 +428,9 @@ export default function CategoryDetail(): JSX.Element {
         </div>
         {editingLimit?.categoryId === category.id && (
           <div className="flex gap-1.5 mt-1.5">
-            <input className={ui.input} type="number" value={editingLimit.value} autoFocus
+            <AmountInput className="flex-1" value={editingLimit.value} autoFocus
               placeholder={`${isIncome ? 'Goal' : 'Budget'} for ${format(currentMonth, 'MMMM')}`}
-              onChange={e => setEditingLimit({ ...editingLimit, value: e.target.value })} />
+              onChange={v => setEditingLimit(prev => prev ? { ...prev, value: v } : prev)} />
             <button onClick={() => run(saveLimit)} disabled={busy} className={ui.btnPrimary}>{busy ? 'Saving...' : 'Set'}</button>
             <button onClick={() => setEditingLimit(null)} className={ui.btnSecondary}>Cancel</button>
           </div>
@@ -439,8 +440,8 @@ export default function CategoryDetail(): JSX.Element {
           <div className="flex gap-1.5 mt-1.5">
             <input className={ui.input} placeholder="Subcategory name" value={subForm.name}
               onChange={e => setSubForm({ ...subForm, name: e.target.value })} autoFocus />
-            <input className={`${ui.input} !w-28`} type="number" placeholder={`${currencySymbol()} amount`} value={subForm.amount}
-              onChange={e => setSubForm({ ...subForm, amount: e.target.value })} />
+            <AmountInput className="w-28" placeholder={`${currencySymbol()} amount`} value={subForm.amount}
+              onChange={v => setSubForm(prev => prev ? { ...prev, amount: v } : prev)} />
             <button onClick={() => run(addSub)} disabled={busy} className={ui.btnPrimary}>{busy ? 'Saving...' : 'Add'}</button>
           </div>
         )}
@@ -510,9 +511,9 @@ export default function CategoryDetail(): JSX.Element {
 
             {editingLimit?.categoryId === sub.id && (
               <div className="flex gap-1.5 mt-1.5">
-                <input className={ui.input} type="number" value={editingLimit.value} autoFocus
+                <AmountInput className="flex-1" value={editingLimit.value} autoFocus
                   placeholder={`Amount for ${format(currentMonth, 'MMMM')}`}
-                  onChange={e => setEditingLimit({ ...editingLimit, value: e.target.value })} />
+                  onChange={v => setEditingLimit(prev => prev ? { ...prev, value: v } : prev)} />
                 <button onClick={() => run(saveLimit)} disabled={busy} className={ui.btnPrimary}>{busy ? 'Saving...' : 'Set'}</button>
                 <button onClick={() => setEditingLimit(null)} className={ui.btnSecondary}>Cancel</button>
               </div>

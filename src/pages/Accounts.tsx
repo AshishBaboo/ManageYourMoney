@@ -9,6 +9,7 @@ import Loader from '../components/Loader'
 import Select from '../components/Select'
 import { useConfirm } from '../components/ConfirmDialog'
 import { useBusy } from '../lib/useBusy'
+import AmountInput from '../components/AmountInput'
 
 const TYPE_OPTIONS = [
   { value: 'savings', label: 'Savings' },
@@ -245,8 +246,8 @@ export default function Accounts(): JSX.Element {
             </div>
             <div>
               <label className={ui.label}>Opening Balance</label>
-              <input className={ui.input} type="number" placeholder="0" value={form.balance}
-                onChange={e => setForm({ ...form, balance: e.target.value })} />
+              <AmountInput className="w-full" placeholder="0" value={form.balance}
+                onChange={v => setForm({ ...form, balance: v })} />
             </div>
           </div>
           <button onClick={() => run(addAccount)} disabled={busy} className={`${ui.btnPrimary} mt-2 w-full md:w-auto`}>{busy ? 'Saving...' : 'Save Account'}</button>
@@ -281,8 +282,8 @@ export default function Accounts(): JSX.Element {
             </div>
             <div>
               <label className={ui.label}>Amount</label>
-              <input className={ui.input} type="number" placeholder="0" value={transfer.amount}
-                onChange={e => setTransfer({ ...transfer, amount: e.target.value })} />
+              <AmountInput className="w-full" placeholder="0" value={transfer.amount}
+                onChange={v => setTransfer({ ...transfer, amount: v })} />
             </div>
           </div>
           <button onClick={() => run(doTransfer)} disabled={busy} className={`${ui.btnPrimary} mt-2 w-full md:w-auto`}>{busy ? 'Transferring...' : 'Transfer Now'}</button>
@@ -311,8 +312,8 @@ export default function Accounts(): JSX.Element {
                         onChange={v => setEditing({ ...editing, type: v })}
                         options={TYPE_OPTIONS}
                       />
-                      <input className={`${ui.input} !w-28`} type="number" value={editing.balance} placeholder="Balance"
-                        onChange={e => setEditing({ ...editing, balance: e.target.value })} />
+                      <AmountInput className="w-28" value={editing.balance} placeholder="Balance"
+                        onChange={v => setEditing(prev => prev ? { ...prev, balance: v } : prev)} />
                     </div>
                     <div className="flex gap-1.5">
                       <button onClick={() => run(saveEdit)} disabled={busy} className={ui.btnPrimary}>

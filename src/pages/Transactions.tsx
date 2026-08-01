@@ -9,6 +9,7 @@ import { Toast, BusyPill, useNotify } from '../components/Toast'
 import Loader from '../components/Loader'
 import AutocompleteInput from '../components/AutocompleteInput'
 import Select from '../components/Select'
+import AmountInput from '../components/AmountInput'
 import { useConfirm } from '../components/ConfirmDialog'
 import { useBusy } from '../lib/useBusy'
 import { insertTransaction, updateTransaction, occurredAtFor, formatTxDate, sortTx } from '../lib/tx'
@@ -362,8 +363,8 @@ export default function Transactions(): JSX.Element {
                 </div>
                 <div>
                   <label className={ui.label}>Amount ({currencySymbol()})</label>
-                  <input className={ui.input} type="number" step="0.01" placeholder="0" value={form.amount}
-                    onChange={e => setForm({ ...form, amount: e.target.value })} />
+                  <AmountInput className="w-full" placeholder="0" value={form.amount}
+                    onChange={v => setForm({ ...form, amount: v })} />
                 </div>
                 <div>
                   <label className={ui.label}>Date</label>
@@ -432,8 +433,8 @@ export default function Transactions(): JSX.Element {
                     <input className={ui.input} value={editingTx.description} placeholder="Description"
                       onChange={e => setEditingTx({ ...editingTx, description: e.target.value })} autoFocus />
                     <div className="flex gap-1.5">
-                      <input className={ui.input} type="number" value={editingTx.amount} placeholder="Amount"
-                        onChange={e => setEditingTx({ ...editingTx, amount: e.target.value })} />
+                      <AmountInput className="flex-1" value={editingTx.amount} placeholder="Amount"
+                        onChange={v => setEditingTx({ ...editingTx, amount: v })} />
                       <input className={ui.input} type="date" value={editingTx.date}
                         onChange={e => setEditingTx({ ...editingTx, date: e.target.value })} />
                     </div>
